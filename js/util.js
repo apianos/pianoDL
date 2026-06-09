@@ -5,8 +5,42 @@ export function getYoutubeIdFromUrl(url) {
     )?.[1] ?? '';
 }
 
+export function getInstagramIdFromUrl(url) {
+    return url.match(
+        /(?:https?:\/\/)?(?:www\.)?instagram\.com\/p\/([a-zA-Z0-9_-]+)\/?/,
+    )?.[1] ?? '';
+}
+
+export function getInstagramEmbedUrl(id) {
+    return `https://www.instagram.com/p/${id}/embed/`;
+}
+
+export function processInstagramEmbeds() {
+    if (window.instgrm) {
+        window.instgrm.Embeds.process();
+    }
+}
+
+
+export function getTiktokIdFromUrl(url) {
+    return url.match(
+        /(?:https?:\/\/)?(?:www\.)?tiktok\.com\/@(?:[a-zA-Z0-9_-]+)\/video\/([0-9]+)/,
+    )?.[1] ?? '';
+}
+
+export function getTiktokEmbedUrl(id) {
+    return `https://www.tiktok.com/embed/v2/${id}`;
+}
+
 export function embed(video) {
-    return `https://www.youtube.com/embed/${getYoutubeIdFromUrl(video)}`;
+    if (video.includes('youtube.com') || video.includes('youtu.be')) {
+        return `https://www.youtube.com/embed/${getYoutubeIdFromUrl(video)}`;
+    } else if (video.includes('instagram.com')) {
+        return getInstagramEmbedUrl(getInstagramIdFromUrl(video));
+    } else if (video.includes('tiktok.com')) {
+        return getTiktokEmbedUrl(getTiktokIdFromUrl(video));
+    }
+    return '';
 }
 
 export function localize(num) {
