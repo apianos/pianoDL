@@ -30,6 +30,10 @@
     word-break: normal;
     overflow-wrap: anywhere;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
 }
 .page-list .list .level.error button {
     color: var(--color-error);
@@ -125,4 +129,22 @@
 }
 .page-list .meta .editors li a:hover {
     text-decoration: underline;
+}
+
+/* Make h3 anchors on the meta column look like typical links */
+.page-list .meta h3 a {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+.page-list .meta h3 a:hover {
+    color: var(--color-primary);
+    opacity: 0.85;
+}
+
+.page-list .list .level button .difficulty-icon {
+    height: 1.4em; /* slightly larger than text */
+    width: auto;
+    flex: 0 0 auto;
+    margin-left: 0.5rem;
+    object-fit: contain;
 }

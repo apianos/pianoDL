@@ -8,7 +8,11 @@ export default {
             type: Array,
             required: true,
         },
-        verifier: {
+        player: {
+            type: String,
+            required: true,
+        },
+        date: {
             type: String,
             required: true,
         },
@@ -21,7 +25,7 @@ export default {
                     <span>{{ author }}</span>
                 </p>
             </template>
-            <template v-else-if="creators.length === 0">
+            <template v-else-if="creators.length === 0">    
                 <div class="type-title-sm">Creator</div>
                 <p class="type-body">
                     <span>{{ author }}</span>
@@ -32,28 +36,21 @@ export default {
                 </p>
             </template>
             <template v-else>
-                <div class="type-title-sm">Creators</div>
+                <div class="type-title-sm">Player</div>
                 <p class="type-body">
-                    <template v-for="(creator, index) in creators" :key="\`creator-\$\{creator\}\`">
-                        <span >{{ creator }}</span
-                        ><span v-if="index < creators.length - 1">, </span>
-                    </template>
+                    <span>{{ player }}</span>
                 </p>
-                <div class="type-title-sm">Verifier</div>
+                <div class="type-title-sm">Date</div>
                 <p class="type-body">
-                    <span>{{ verifier }}</span>
+                    <span>{{ date }}</span>
                 </p>
             </template>
-            <div class="type-title-sm">Publisher</div>
-            <p class="type-body">
-                <span>{{ author }}</span>
-            </p>
         </div>
     `,
 
     computed: {
         selfVerified() {
-            return this.author === this.verifier && this.creators.length === 0;
+            return this.author === this.player && this.creators.length === 0;
         },
     },
 };
