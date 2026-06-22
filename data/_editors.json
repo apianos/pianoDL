@@ -15,6 +15,11 @@
         "link": "https://www.tiktok.com/@veinti.28"
     },
     {
+        "role": "admin",
+        "name": "Aurorae_Drago",
+        "link": "https://www.youtube.com/@aurorae_drago"
+    },
+    {
         "role": "helper",
         "name": "bloonkbok",
         "link": "https://www.tiktok.com/@bloonkbok"
@@ -24,6 +29,12 @@
         "name": "nilgd666",
         "link": "https://www.tiktok.com/@nilgd666"
     },
+    {
+        "role":"helper",
+        "name": "Pianotopian",
+        "link": "https://www.youtube.com/@Pianotopian"
+    },
+    
     {
         "role": "dev",
         "name": "Prometheus",
