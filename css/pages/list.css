@@ -3,8 +3,13 @@
 .page-list .meta-container {
     padding-block: 2rem;
 }
+.page-list {
+    grid-template-columns: minmax(22rem, 1fr) minmax(24rem, 2fr) minmax(16em, 1fr);
+}
+
 .page-list .list-container {
     padding-inline: 1rem;
+    min-width: 22rem;
 }
 .page-list .meta-container {
     padding-right: 2rem;
@@ -28,12 +33,35 @@
     padding: 1rem;
     text-align: start;
     word-break: normal;
-    overflow-wrap: anywhere;
+    overflow-wrap: normal;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+}
+.page-list .list .level button .level-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+}
+.page-list .list .level button .level-info .type-label-lg,
+.page-list .list .level button .level-info .type-label-sm {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    width: 100%;
+}
+.page-list .list .level button .level-info .type-label-lg::before,
+.page-list .list .level button .level-info .type-label-lg::after,
+.page-list .list .level button .level-info .type-label-sm::before,
+.page-list .list .level button .level-info .type-label-sm::after {
+    margin: 0;
 }
 .page-list .list .level.error button {
     color: var(--color-error);
