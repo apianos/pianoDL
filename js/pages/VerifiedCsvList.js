@@ -71,28 +71,28 @@ export default {
         <main v-else class="page-list">
             <div class="list-container">
                 <table class="list" v-if="list.length > 0">
-                    <tr v-for="(achievement, i) in list" :key="achievement.rank">
+                    <tr v-for="(entry, i) in list" :key="entry.rank">
                         <td class="rank">
-                            <p class="type-label-lg">#{{ achievement.rank }}</p>
+                            <p class="type-label-lg">#{{ entry.rank }}</p>
                         </td>
                         <td class="level" :class="{ active: selected === i }">
                             <button @click="selected = i">
                                 <img
-                                    v-if="achievement.difficulty"
+                                    v-if="entry.difficulty"
                                     class="difficulty-icon"
-                                    :src="'/assets/difficulty-icons/' + achievement.difficulty + '.png'"
-                                    :alt="achievement.difficulty"
+                                    :src="'/assets/difficulty-icons/' + entry.difficulty + '.png'"
+                                    :alt="entry.difficulty"
                                 />
                                 <div class="level-info">
-                                    <span class="type-label-lg">{{ achievement.name }}</span>
-                                    <p class="type-label-sm">{{ achievement.player }}</p>
+                                    <span class="type-label-lg">{{ entry.name }}</span>
+                                    <p class="type-label-sm">{{ entry.player }}</p>
                                 </div>
                             </button>
                         </td>
                     </tr>
                 </table>
                 <div v-else class="level" style="height: 100%; justify-content: center; align-items: center;">
-                    <p>No achievement rows were loaded.</p>
+                    <p>No verified entries were loaded.</p>
                 </div>
             </div>
             <div class="level-container" v-if="entry">
@@ -106,6 +106,23 @@ export default {
                         <p class="type-body"><span>{{ entry.date || 'Unknown' }}</span></p>
                     </div>
                     <iframe class="video" id="videoframe" :src="video" frameborder="0"></iframe>
+                    <div class="victors-section" v-if="relatedEntries.length > 0">
+                        <h2 class="type-title-lg">Records</h2>
+                        <table class="records">
+                            <tr v-for="related in relatedEntries" :key="related.id">
+                                <td class="percent">
+                                    <p>{{ related.percent }}%</p>
+                                </td>
+                                <td class="user">
+                                    <a v-if="related.video" :href="related.video" target="_blank" class="type-label-lg">{{ related.player || 'Unknown' }}</a>
+                                    <p v-else class="type-label-lg">{{ related.player || 'Unknown' }}</p>
+                                </td>
+                                <td class="date">
+                                    <p>{{ related.date || 'Unknown' }}</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
                 </div>
             </div>
             <div class="meta-container">
@@ -126,12 +143,8 @@ export default {
                         </li>
                     </ol>
                     <h3>Submission Requirements</h3>
-                    <p>
-                        Achieved the record without using hacks (however, FPS bypass is allowed, up to 360fps)
-                    </p>
-                    <p>
-                        Have either source audio or clicks/taps in the video. Edited audio only does not count
-                    </p>
+                    <p>Achieved the record without using hacks (however, FPS bypass is allowed, up to 360fps)</p>
+                    <p>Have either source audio or clicks/taps in the video. Edited audio only does not count</p>
                 </div>
             </div>
         </main>
@@ -139,6 +152,7 @@ export default {
     data: () => ({
         loading: true,
         list: [],
+        allEntries: [],
         selected: 0,
         editors: [],
         errors: [],
@@ -163,13 +177,29 @@ export default {
                 trial: 'user-lock',
             };
         },
+        relatedEntries() {
+            if (!this.entry) {
+                return [];
+            }
+
+            const currentName = (this.entry.name || '').trim().toLowerCase();
+            return this.allEntries
+                .filter((item) => {
+                    if (!item.name || item.id === this.entry.id) {
+                        return false;
+                    }
+                    return (item.name || '').trim().toLowerCase() === currentName;
+                })
+                .sort((a, b) => {
+                    const dateA = a.date ? new Date(a.date) : new Date(0);
+                    const dateB = b.date ? new Date(b.date) : new Date(0);
+                    return dateA - dateB;
+                });
+        },
     },
     async mounted() {
         try {
-            const [editors, editorError] = await Promise.all([
-                fetchEditors(),
-                null,
-            ]);
+            const [editors] = await Promise.all([fetchEditors()]);
             this.editors = editors || [];
 
             const response = await fetch(csvPath);
@@ -178,31 +208,45 @@ export default {
             const [header, ...dataRows] = rows;
             const headers = header.map((col) => col.trim());
 
-            this.list = dataRows
+            const parsedEntries = dataRows
                 .map((row, index) => {
                     const values = headers.reduce((acc, key, colIndex) => {
                         acc[key] = row[colIndex] ? row[colIndex].trim() : '';
                         return acc;
                     }, {});
 
+                    const verifierKey = Object.keys(values).find((key) => {
+                        const normalized = key.toLowerCase().replace(/\?/g, '');
+                        return normalized === 'verifier';
+                    });
+                    const verifierValue = verifierKey ? values[verifierKey] : '';
+                    const percentMatch = (values['Name'] || '').match(/(\d{1,3})(?:\s*-\s*\d{1,3})?%/);
+                    const percent = percentMatch ? Number(percentMatch[1]) : 100;
+
                     return {
-                        rank: values['#'] || index + 1,
+                        id: index,
                         name: values['Name'] || '',
                         notes: values['Notes'] || '',
                         player: values['Player'] || '',
                         date: values['Date'] || '',
                         video: values['Player Video'] || '',
                         difficulty: values['Difficulty'] || '',
+                        verifier: verifierValue,
+                        percent,
                     };
                 })
-                .filter((achievement) => achievement.name.trim() !== '');
+                .filter((entry) => entry.name.trim() !== '');
 
-            if (editorError) {
-                this.errors.push(editorError);
-            }
+            this.allEntries = parsedEntries;
+            this.list = parsedEntries
+                .filter((entry) => entry.verifier.toLowerCase() === 'y')
+                .map((entry, index) => ({
+                    ...entry,
+                    rank: index + 1,
+                }));
         } catch (error) {
-            console.error('Failed to load achievement list:', error);
-            this.errors.push('Failed to load achievement list. Retry in a few minutes or notify list staff.');
+            console.error('Failed to load verified CSV list:', error);
+            this.errors.push('Failed to load verified list. Retry in a few minutes or notify list staff.');
         } finally {
             this.loading = false;
         }

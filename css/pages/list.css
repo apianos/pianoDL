@@ -126,6 +126,14 @@
 .page-list .level-container .level .records a:hover {
     text-decoration: underline;
 }
+.page-list .level-container .level .victors-section .records .user a {
+    color: var(--color-primary);
+}
+.page-list .level-container .level .victors-section .records .date {
+    white-space: nowrap;
+    text-align: end;
+    padding-left: 1rem;
+}
 .page-list .meta {
     display: flex;
     flex-direction: column;
