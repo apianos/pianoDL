@@ -3,7 +3,7 @@ import { embed } from '../util.js';
 import { fetchEditors } from '../content.js';
 import Spinner from '../components/Spinner.js';
 
-const csvPath = '/data/pianoDL - piano achievement list (8).csv';
+const csvPath = '/data/pianoDL - piano achievement list (10).csv';
 
 function parseCsv(text, delimiter = ',') {
     const rows = [];
