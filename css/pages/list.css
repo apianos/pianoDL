@@ -90,7 +90,21 @@
     gap: 1rem;
 }
 .page-list .level-container .level .video {
+    display: block;
+    width: 100%;
     aspect-ratio: 16/9;
+    min-height: 28rem;
+}
+.page-list .level-container .level .video-caption {
+    margin-top: 0.35rem;
+    color: var(--color-on-background);
+}
+.page-list .level-container .level .video-caption a {
+    color: #0066ff;
+    text-decoration: underline;
+}
+.page-list .level-container .level .video-caption a:hover {
+    color: #0052cc;
 }
 .page-list .level-container .level .stats {
     display: flex;

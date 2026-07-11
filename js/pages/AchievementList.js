@@ -3,7 +3,7 @@ import { embed } from '../util.js';
 import { fetchEditors } from '../content.js';
 import Spinner from '../components/Spinner.js';
 
-const csvPath = '/data/pianoDL - piano achievement list (10).csv';
+const csvPath = '/data/pianoDL - piano achievement list (11).csv';
 
 function parseCsv(text, delimiter = ',') {
     const rows = [];
@@ -106,6 +106,14 @@ export default {
                         <p class="type-body"><span>{{ entry.date || 'Unknown' }}</span></p>
                     </div>
                     <iframe class="video" id="videoframe" :src="video" frameborder="0"></iframe>
+                    <p class="video-caption type-label-sm">
+                        <a
+                            v-if="entry.video"
+                            :href="entry.video"
+                            target="_blank"
+                            rel="noreferrer noopener"
+                        >Video link</a>
+                    </p>
                 </div>
             </div>
             <div class="meta-container">
