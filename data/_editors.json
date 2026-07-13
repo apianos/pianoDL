@@ -11,6 +11,16 @@
     },
     {
         "role": "admin",
+        "name": "nilgd666",
+        "link": "https://www.tiktok.com/@nilgd666"
+    },
+    {
+        "role": "admin",
+        "name": "Pianotopian",
+        "link": "https://www.youtube.com/@Pianotopian"
+    },
+    {
+        "role": "admin",
         "name": "veinti.28",
         "link": "https://www.tiktok.com/@veinti.28"
     },
@@ -26,15 +36,9 @@
     },
     {
         "role": "helper",
-        "name": "nilgd666",
-        "link": "https://www.tiktok.com/@nilgd666"
+        "name": "LShrinkOn",
+        "link": "https://www.instagram.com/l_shrinkon/"
     },
-    {
-        "role":"helper",
-        "name": "Pianotopian",
-        "link": "https://www.youtube.com/@Pianotopian"
-    },
-    
     {
         "role": "dev",
         "name": "Prometheus",
