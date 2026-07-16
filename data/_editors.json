@@ -6,6 +6,11 @@
     },
     {
         "role": "admin",
+        "name": "Aurorae_Drago",
+        "link": "https://www.youtube.com/@aurorae_drago"
+    },
+    {
+        "role": "admin",
         "name": "GDxPiano",
         "link": "https://www.youtube.com/@GDxPiano"
     },
@@ -24,11 +29,7 @@
         "name": "veinti.28",
         "link": "https://www.tiktok.com/@veinti.28"
     },
-    {
-        "role": "helper",
-        "name": "Aurorae_Drago",
-        "link": "https://www.youtube.com/@aurorae_drago"
-    },
+    
     {
         "role": "helper",
         "name": "bloonkbok",
