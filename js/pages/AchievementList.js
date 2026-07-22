@@ -3,7 +3,42 @@ import { embed } from '../util.js';
 import { fetchEditors } from '../content.js';
 import Spinner from '../components/Spinner.js';
 
-const csvPath = '/data/pianoDL - piano achievement list (18).csv';
+const csvPath = '/data/pianoDL - piano achievement list (20).csv';
+
+function normalizeAchievementTitle(title = '') {
+    return title
+        .trim()
+        .toLowerCase()
+        .replace(/\s*\+\s*\d{1,3}(?:\s*-\s*\d{1,3})?%?/g, '')
+        .replace(/\s+\d{1,3}(?:\s*-\s*\d{1,3})?%?$/i, '')
+        .trim();
+}
+
+function getPercentLabel(title = '') {
+    const value = title.trim();
+    const compoundMatch = value.match(/(\d{1,3}%\s*\+\s*\d{1,3}\s*(?:-|–)\s*\d{1,3}%?)/i);
+    if (compoundMatch) {
+        return compoundMatch[1].replace(/\s+/g, ' ').trim();
+    }
+
+    const rangeMatch = value.match(/(\d{1,3}\s*(?:-|–)\s*\d{1,3}%?)/i);
+    if (rangeMatch) {
+        const range = rangeMatch[1].replace(/\s+/g, '');
+        return range.endsWith('%') ? range : `${range}%`;
+    }
+
+    const singleMatch = value.match(/(\d{1,3}%)$/i);
+    if (singleMatch) {
+        return singleMatch[1];
+    }
+
+    return '100%';
+}
+
+function isPastRank(rank = '') {
+    const normalized = String(rank).trim().toUpperCase();
+    return normalized === 'PAST' || normalized === 'OLD';
+}
 
 function parseCsv(text, delimiter = ',') {
     const rows = [];
@@ -114,6 +149,23 @@ export default {
                             rel="noreferrer noopener"
                         >Video link</a>
                     </p>
+                    <div class="victors-section" v-if="relatedEntries.length > 0">
+                        <h2 class="type-title-lg">Past Runs</h2>
+                        <table class="records">
+                            <tr v-for="related in relatedEntries" :key="related.id">
+                                <td class="percent">
+                                    <p>{{ related.percent }}</p>
+                                </td>
+                                <td class="user">
+                                    <a v-if="related.video" :href="related.video" target="_blank" class="type-label-lg">{{ related.player || 'Unknown' }}</a>
+                                    <p v-else class="type-label-lg">{{ related.player || 'Unknown' }}</p>
+                                </td>
+                                <td class="date">
+                                    <p>{{ related.date || 'Unknown' }}</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
                 </div>
             </div>
             <div class="meta-container">
@@ -147,6 +199,7 @@ export default {
     data: () => ({
         loading: true,
         list: [],
+        allEntries: [],
         selected: 0,
         editors: [],
         errors: [],
@@ -171,6 +224,36 @@ export default {
                 trial: 'user-lock',
             };
         },
+        relatedEntries() {
+            if (!this.entry) {
+                return [];
+            }
+
+            const currentName = normalizeAchievementTitle(this.entry.name);
+            const currentPlayer = (this.entry.player || '').trim().toLowerCase();
+
+            return this.allEntries
+                .filter((item) => {
+                    if (!item.name || item.id === this.entry.id) {
+                        return false;
+                    }
+
+                    const itemName = normalizeAchievementTitle(item.name);
+                    const itemPlayer = (item.player || '').trim().toLowerCase();
+                    const isPastEntry = isPastRank(item.rank);
+
+                    return (
+                        itemName === currentName &&
+                        itemPlayer === currentPlayer &&
+                        isPastEntry
+                    );
+                })
+                .sort((a, b) => {
+                    const dateA = a.date ? new Date(a.date) : new Date(0);
+                    const dateB = b.date ? new Date(b.date) : new Date(0);
+                    return dateA - dateB;
+                });
+        },
     },
     async mounted() {
         try {
@@ -186,24 +269,42 @@ export default {
             const [header, ...dataRows] = rows;
             const headers = header.map((col) => col.trim());
 
-            this.list = dataRows
+            const parsedEntries = dataRows
                 .map((row, index) => {
                     const values = headers.reduce((acc, key, colIndex) => {
                         acc[key] = row[colIndex] ? row[colIndex].trim() : '';
                         return acc;
                     }, {});
 
+                    const rank = (values['#'] || '').toString().trim();
+                    const percent = getPercentLabel(values['Name'] || '');
+
                     return {
-                        rank: values['#'] || index + 1,
+                        id: index,
+                        rank: rank || String(index + 1),
                         name: values['Name'] || '',
                         notes: values['Notes'] || '',
                         player: values['Player'] || '',
                         date: values['Date'] || '',
                         video: values['Player Video'] || '',
                         difficulty: values['Difficulty'] || '',
+                        percent,
                     };
                 })
                 .filter((achievement) => achievement.name.trim() !== '');
+
+            this.allEntries = parsedEntries;
+            this.list = parsedEntries
+                .filter((achievement) => !isPastRank(achievement.rank))
+                .map((achievement, index) => ({
+                    ...achievement,
+                    rank: Number.isNaN(Number(achievement.rank)) ? achievement.rank : Number(achievement.rank),
+                    displayRank: Number.isNaN(Number(achievement.rank)) ? achievement.rank : Number(achievement.rank),
+                }))
+                .map((achievement, index) => ({
+                    ...achievement,
+                    rank: index + 1,
+                }));
 
             if (editorError) {
                 this.errors.push(editorError);

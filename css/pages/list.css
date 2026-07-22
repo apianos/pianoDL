@@ -132,7 +132,11 @@
 .page-list .level-container .level .records .user {
     width: 100%;
 }
-.page-list .level-container .level .records .percent,
+.page-list .level-container .level .records .percent {
+    min-width: 7rem;
+    text-align: start;
+    white-space: nowrap;
+}
 .page-list .level-container .level .records .hz {
     text-align: end;
 }
