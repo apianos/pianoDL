@@ -126,6 +126,7 @@
 }
 .page-list .level-container .level .records .percent,
 .page-list .level-container .level .records .user,
+.page-list .level-container .level .records .achievement-rank,
 .page-list .level-container .level .records .hz {
     padding-block: 1rem;
 }
@@ -134,6 +135,11 @@
 }
 .page-list .level-container .level .records .percent {
     min-width: 7rem;
+    text-align: start;
+    white-space: nowrap;
+}
+.page-list .level-container .level .records .achievement-rank {
+    min-width: 5rem;
     text-align: start;
     white-space: nowrap;
 }

@@ -2,8 +2,9 @@ import { store } from '../main.js';
 import { embed } from '../util.js';
 import { fetchEditors } from '../content.js';
 import Spinner from '../components/Spinner.js';
+import Sidebar from '../components/List/Sidebar.js';
 
-const csvPath = '/data/pianoDL - piano achievement list (26).csv';
+const csvPath = '/data/pianoDL - piano achievement list (27).csv';
 
 function normalizeAchievementTitle(title = '') {
     return title
@@ -98,7 +99,7 @@ function parseCsv(text, delimiter = ',') {
 }
 
 export default {
-    components: { Spinner },
+    components: { Spinner, Sidebar },
     template: `
         <main v-if="loading">
             <Spinner></Spinner>
@@ -168,32 +169,9 @@ export default {
                     </div>
                 </div>
             </div>
-            <div class="meta-container">
-                <div class="meta">
-                    <div class="errors" v-show="errors.length > 0">
-                        <p class="error" v-for="error of errors">{{ error }}</p>
-                    </div>
-                    <div class="og">
-                        <p class="type-label-md">Website layout made by <a href="https://tsl.pages.dev/" target="_blank">TheShittyList</a></p>
-                    </div>
-                    <h3><a href="https://docs.google.com/spreadsheets/d/1G690o1gyEmQR8HmtauwUkV9Z-qbg2C22v9Z7FlRpXYk/edit" target="_blank">Full List (including runs)</a></h3>
-                    <h3>List Editors</h3>
-                    <ol class="editors">
-                        <li v-for="editor in editors" :key="editor.name">
-                            <img :src="'/assets/' + roleIconMap[editor.role] + (store.dark ? '-dark' : '') + '.svg'" :alt="editor.role" />
-                            <a v-if="editor.link" class="type-label-lg link" target="_blank" :href="editor.link">{{ editor.name }}</a>
-                            <p v-else>{{ editor.name }}</p>
-                        </li>
-                    </ol>
-                    <h3>Submission Requirements</h3>
-                    <p>
-                        Achieved the record without using hacks (however, FPS bypass is allowed, up to 360fps)
-                    </p>
-                    <p>
-                        Have either source audio or clicks/taps in the video. Edited audio only does not count
-                    </p>
-                </div>
-            </div>
+            <Sidebar :editors="editors">
+                <p class="error" v-for="error of errors" :key="error">{{ error }}</p>
+            </Sidebar>
         </main>
     `,
     data: () => ({
