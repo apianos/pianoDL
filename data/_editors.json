@@ -4,11 +4,7 @@
         "name": "keytoucher1434",
         "link": "https://www.instagram.com/keytoucher1434/"
     },
-    {
-        "role": "admin",
-        "name": "Aurorae_Drago",
-        "link": "https://www.youtube.com/@aurorae_drago"
-    },
+    
     {
         "role": "admin",
         "name": "GDxPiano",
@@ -29,11 +25,20 @@
         "name": "veinti.28",
         "link": "https://www.tiktok.com/@veinti.28"
     },
-
+    {
+        "role": "helper",
+        "name": "Aurorae_Drago",
+        "link": "https://www.youtube.com/@aurorae_drago"
+    },
     {
         "role": "helper",
         "name": "bloonkbok",
         "link": "https://www.tiktok.com/@bloonkbok"
+    },
+    {
+        "role": "helper",
+        "name": "ferrari216",
+        "link": "https://www.youtube.com/channel/UCEZZnOmaJzRGFLqXPm8xdSg"
     },
     {
         "role": "helper",

@@ -3,6 +3,7 @@ import AchievementList from './pages/AchievementList.js';
 import VerifiedCsvList from './pages/VerifiedCsvList.js';
 import Leaderboard from './pages/Leaderboard.js';
 import Roulette from './pages/Roulette.js';
+import StatsViewer from './pages/StatsViewer.js';
 
 export default [
     { path: '/', component: VerifiedCsvList },
@@ -10,5 +11,6 @@ export default [
     { path: '/achievement-list', component: AchievementList },
     { path: '/experimental-verified-list', component: VerifiedCsvList },
     { path: '/leaderboard', component: Leaderboard },
+    { path: '/stats-viewer', component: StatsViewer },
     { path: '/roulette', component: Roulette },
 ];

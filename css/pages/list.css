@@ -6,6 +6,104 @@
 .page-list {
     grid-template-columns: minmax(22rem, 1fr) minmax(24rem, 2fr) minmax(16em, 1fr);
 }
+.page-list--stats {
+    grid-template-columns: minmax(24rem, 1fr) minmax(24rem, 2fr) minmax(16rem, 1fr);
+}
+.page-list--stats .list-container {
+    min-width: 24rem;
+}
+.page-list--stats .stats-sidebar {
+    gap: 1.5rem;
+}
+.page-list--stats .stats-intro {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+.page-list--stats .stats-list-table {
+    font-size: 0.95rem;
+    margin-top: 1.1rem;
+}
+.page-list--stats .stats-list-table th,
+.page-list--stats .stats-list-table td {
+    padding-block: 0.45rem;
+}
+.page-list--stats .stats-list-table .type-title-sm {
+    font-size: 0.95rem;
+    line-height: 1.2;
+}
+.page-list--stats .stats-player-button {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-primary);
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+}
+.page-list--stats .stats-player-button:hover {
+    text-decoration: underline;
+}
+.page-list--stats .stats-detail-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+.page-list--stats .stats-detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.page-list--stats .stats-detail-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+.page-list--stats .stats-detail-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-block: 0.3rem;
+}
+.page-list--stats .stats-detail-copy {
+    flex: 1;
+}
+.page-list--stats .stats-detail-copy .type-label-md {
+    font-size: 1rem;
+    line-height: 1.4;
+}
+.page-list--stats .stats-detail-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-on-background);
+    text-decoration: none;
+}
+.page-list--stats .stats-detail-link:hover {
+    text-decoration: underline;
+}
+.page-list--stats .stats-detail-link--text {
+    color: var(--color-on-background);
+}
+.page-list--stats .stats-detail-rank {
+    color: var(--color-on-background);
+    font-family: "Lexend Deca", sans-serif;
+    font-size: 14.2857142857px;
+    line-height: 18px;
+    font-weight: 500;
+    -webkit-font-smoothing: subpixel-antialiased;
+    white-space: nowrap;
+}
+.page-list--stats .stats-detail-date {
+    white-space: nowrap;
+    margin-top: 0.1rem;
+    font-size: 0.95rem;
+}
 
 .page-list .list-container {
     padding-inline: 1rem;
