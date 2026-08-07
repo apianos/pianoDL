@@ -3,8 +3,8 @@ import Spinner from '../components/Spinner.js';
 import Sidebar from '../components/List/Sidebar.js';
 import { fetchEditors } from '../content.js';
 
-const statsCsvPath = '/data/achievement_leaderboard.csv';
-const achievementCsvPath = '/data/pianoDL - piano achievement list (28).csv';
+const statsCsvPath = '/data/achievement_leaderboard (1).csv';
+const achievementCsvPath = '/data/pianoDL - piano achievement list (29).csv';
 
 function parseCsv(text, delimiter = ',') {
     const rows = [];
