@@ -4,7 +4,7 @@ import { fetchEditors } from '../content.js';
 import Spinner from '../components/Spinner.js';
 import Sidebar from '../components/List/Sidebar.js';
 
-const csvPath = '/data/pianoDL - piano achievement list (29).csv';
+const csvPath = '/data/pianoDL - piano achievement list (30).csv';
 
 function parseCsv(text, delimiter = ',') {
     const rows = [];
