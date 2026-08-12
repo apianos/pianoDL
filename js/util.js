@@ -70,3 +70,30 @@ export function shuffle(array) {
 
     return array;
 }
+
+export async function fetchCsvPrefer(remoteUrl, localPath, timeoutMs = 6000) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const resp = await fetch(remoteUrl, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (resp && resp.ok) {
+            return await resp.text();
+        }
+        console.warn('fetchCsvPrefer: remote response not ok', resp && resp.status);
+    } catch (err) {
+        console.warn('fetchCsvPrefer: remote fetch failed', err && err.message);
+    }
+
+    // fallback to local path
+    try {
+        const local = await fetch(localPath);
+        if (local && local.ok) {
+            return await local.text();
+        }
+        throw new Error('Local fetch failed: ' + (local && local.status));
+    } catch (err) {
+        console.error('fetchCsvPrefer: both remote and local fetch failed', err && err.message);
+        throw err;
+    }
+}

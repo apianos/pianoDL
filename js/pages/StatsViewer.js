@@ -2,9 +2,12 @@ import { store } from '../main.js';
 import Spinner from '../components/Spinner.js';
 import Sidebar from '../components/List/Sidebar.js';
 import { fetchEditors } from '../content.js';
+import { fetchCsvPrefer } from '../util.js';
 
 const statsCsvPath = '/data/achievement_leaderboard (1).csv';
 const achievementCsvPath = '/data/pianoDL - piano achievement list (30).csv';
+const remoteAchievementCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?output=csv';
+const remoteStatsCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?gid=1658804691&single=true&output=csv';
 
 function parseCsv(text, delimiter = ',') {
     const rows = [];
@@ -247,33 +250,43 @@ export default {
             const [editors] = await Promise.all([fetchEditors()]);
             this.editors = editors || [];
 
-            const [statsResponse, achievementResponse] = await Promise.all([
-                fetch(statsCsvPath),
-                fetch(achievementCsvPath),
-            ]);
+            // Load leaderboard CSV: prefer remote published sheet, fallback to local copy
+            const statsTextPromise = fetchCsvPrefer(remoteStatsCsv, statsCsvPath);
+            // Try remote published Google Sheets CSV for achievements, fall back to local file
+            const achievementTextPromise = fetchCsvPrefer(remoteAchievementCsv, achievementCsvPath);
 
-            if (!statsResponse.ok || !achievementResponse.ok) {
-                throw new Error('Failed to fetch leaderboard or achievement CSV files.');
-            }
-
-            const [statsText, achievementText] = await Promise.all([
-                statsResponse.text(),
-                achievementResponse.text(),
-            ]);
+            const [statsText, achievementText] = await Promise.all([statsTextPromise, achievementTextPromise]);
 
             const statsRows = parseCsv(statsText);
-            const achievementRows = parseCsv(achievementText);
+            let achievementRows = parseCsv(achievementText);
+
+            // Validate achievement CSV header looks like the achievement list (not the leaderboard)
+            const achievementHeader = (achievementRows[0] || []).join(' ').toLowerCase();
+            if (!achievementHeader.includes('name') && !achievementHeader.includes('#') && !achievementHeader.includes('player video')) {
+                // remote CSV likely pointed to the leaderboard; fallback to local copy
+                try {
+                    const localResp = await fetch(achievementCsvPath);
+                    if (localResp && localResp.ok) {
+                        const localText = await localResp.text();
+                        achievementRows = parseCsv(localText);
+                    } else {
+                        console.warn('StatsViewer: achievement CSV header mismatch and local fetch failed', localResp && localResp.status);
+                    }
+                } catch (err) {
+                    console.warn('StatsViewer: local achievement fetch failed', err && err.message);
+                }
+            }
 
             const leaderboardEntries = statsRows.slice(1)
                 .map((row) => {
                     const [rankValue, username, pointsValue] = row;
-                    const rank = Number(rankValue || 0);
-                    const points = Number(pointsValue || 0);
+                    const rank = Number((rankValue || '').toString().replace(/[, ]+/g, '')) || 0;
+                    const points = Number((pointsValue || '').toString().replace(/[, ]+/g, '')) || 0;
 
                     return {
-                        rank: Number.isNaN(rank) ? 0 : rank,
-                        username: username || '',
-                        points: Number.isNaN(points) ? 0 : points,
+                        rank: rank,
+                        username: (username || '').trim(),
+                        points: points,
                         details: null,
                     };
                 })

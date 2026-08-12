@@ -1,10 +1,12 @@
 import { store } from '../main.js';
 import { embed } from '../util.js';
+import { fetchCsvPrefer } from '../util.js';
 import { fetchEditors } from '../content.js';
 import Spinner from '../components/Spinner.js';
 import Sidebar from '../components/List/Sidebar.js';
 
 const csvPath = '/data/pianoDL - piano achievement list (30).csv';
+const remoteCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?output=csv';
 
 function normalizeAchievementTitle(title = '') {
     return title
@@ -241,10 +243,26 @@ export default {
             ]);
             this.editors = editors || [];
 
-            const response = await fetch(csvPath);
-            const text = await response.text();
-            const rows = parseCsv(text);
-            const [header, ...dataRows] = rows;
+                let text = await fetchCsvPrefer(remoteCsv, csvPath);
+                let rows = parseCsv(text);
+
+                // If the remote sheet doesn't look like the achievement list, fall back to the local CSV
+                const headerRow = (rows[0] || []).join(' ').toLowerCase();
+                if (!headerRow.includes('name') && !headerRow.includes('#') && !headerRow.includes('player video')) {
+                    try {
+                        const localResp = await fetch(csvPath);
+                        if (localResp && localResp.ok) {
+                            text = await localResp.text();
+                            rows = parseCsv(text);
+                        } else {
+                            console.warn('AchievementList: remote CSV header mismatch and local fetch failed', localResp && localResp.status);
+                        }
+                    } catch (err) {
+                        console.warn('AchievementList: local fetch failed', err && err.message);
+                    }
+                }
+
+                const [header, ...dataRows] = rows;
             const headers = header.map((col) => col.trim());
 
             const parsedEntries = dataRows
