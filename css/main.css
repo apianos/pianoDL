@@ -48,7 +48,7 @@ main {
 
 header {
     display: flex;
-    padding-inline: calc(25vw - 10rem);
+    padding-inline: 2rem;
     min-height: 3.75rem;
     background-color: var(--color-primary);
     color: var(--color-on-primary);
@@ -65,9 +65,12 @@ header .logo {
     display: flex;
     align-items: flex-end;
     gap: 1rem;
+    flex-shrink: 0;
 }
 header .nav {
     flex: 1;
+    grid-column: 2 / span 2;
+    padding-right: 2rem;
 }
 
 main {

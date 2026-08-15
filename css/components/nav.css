@@ -1,6 +1,6 @@
 .nav {
     display: flex;
-    column-gap: 1rem;
+    column-gap: 1.25rem;
     align-items: center;
 }
 .nav .nav__tab {
@@ -12,6 +12,7 @@
     transition: border-color 100ms ease;
     white-space: nowrap;
     width: fit-content;
+    flex-shrink: 0;
 }
 .nav .nav__tab.router-link-active {
     border-color: var(--color-on-primary);
@@ -25,8 +26,8 @@
     align-items: center;
     justify-content: flex-end;
     gap: 0.5rem;
-    min-width: 0;
-    margin-left: 0.5rem;
+    margin-left: auto;
+    flex-shrink: 0;
 }
 .nav .nav__actions .nav__cta {
     margin-left: 0.75rem;
@@ -42,12 +43,20 @@
     align-items: center;
     justify-content: center;
     transition: background-color 100ms ease;
+    flex-shrink: 0;
 }
 .nav .nav__actions .nav__icon:hover {
     background-color: rgba(255, 255, 255, 0.2);
 }
 .nav .nav__actions .nav__icon img {
     height: 1.5rem;
+    transition: filter 100ms ease;
+}
+header.dark .nav .nav__actions .nav__icon img {
+    filter: invert(1);
+}
+header.dark .nav .nav__actions .nav__icon:hover {
+    background-color: rgba(0, 0, 0, 0.1);
 }
 .nav .nav__actions .nav__cta {
     padding: 0.7rem 1rem;
