@@ -86,7 +86,16 @@ function sortByDate(a, b) {
 }
 
 function isOldEntry(entry = {}) {
-    return String(entry.rank || '').trim().toUpperCase() === 'OLD';
+    const rank = String(entry.rank || '').trim().toUpperCase();
+    const tag = String(entry.tag || '').trim().toUpperCase();
+    return (
+        rank === 'OLD' ||
+        rank === 'PAST' ||
+        rank.startsWith('OLD') ||
+        rank.startsWith('PAST') ||
+        tag === 'OLD' ||
+        tag === 'PAST'
+    );
 }
 
 function dedupeEntries(entries = []) {
@@ -296,8 +305,8 @@ export default {
             const verifiedListRanks = new Map();
             let verifiedRankIndex = 0;
             achievementRows.slice(1).forEach((row) => {
-                const [, name, , , , , , , verifierValue] = row;
-                if ((verifierValue || '').trim().toLowerCase() === 'y') {
+                const [rankValue, name, , , tagValue, , , , verifierValue] = row;
+                if (!isOldEntry({ rank: rankValue, tag: tagValue }) && (verifierValue || '').trim().toLowerCase() === 'y') {
                     verifiedRankIndex += 1;
                     verifiedListRanks.set(normalizePlayerName(name), verifiedRankIndex);
                 }
@@ -305,7 +314,7 @@ export default {
 
             const playerProfiles = new Map();
             achievementRows.slice(1).forEach((row, index) => {
-                const [rankValue, name, notes, playerName, , date, video, difficulty, verifierValue] = row;
+                const [rankValue, name, notes, playerName, tagValue, date, video, difficulty, verifierValue] = row;
                 const normalizedName = normalizePlayerName(playerName);
                 const isLevelCompletion = !containsPercentLabel(name);
                 const isVerified = (verifierValue || '').trim().toLowerCase() === 'y';
@@ -323,6 +332,7 @@ export default {
                 const entry = {
                     id: index,
                     rank: rankValue || '',
+                    tag: tagValue || '',
                     name: name || '',
                     notes,
                     player: playerName || '',

@@ -38,9 +38,17 @@ function getPercentLabel(title = '') {
     return '100%';
 }
 
-function isPastRank(rank = '') {
-    const normalized = String(rank).trim().toUpperCase();
-    return normalized === 'PAST' || normalized === 'OLD';
+function isPastRank(rank = '', extra = '') {
+    const normalized = String(rank || '').trim().toUpperCase();
+    const normalizedExtra = String(extra || '').trim().toUpperCase();
+    return (
+        normalized === 'PAST' ||
+        normalized === 'OLD' ||
+        normalized.startsWith('OLD') ||
+        normalized.startsWith('PAST') ||
+        normalizedExtra === 'OLD' ||
+        normalizedExtra === 'PAST'
+    );
 }
 
 function parseCsv(text, delimiter = ',') {
@@ -220,7 +228,7 @@ export default {
 
                     const itemName = normalizeAchievementTitle(item.name);
                     const itemPlayer = (item.player || '').trim().toLowerCase();
-                    const isPastEntry = isPastRank(item.rank);
+                    const isPastEntry = item.isOld || isPastRank(item.rank, item.tag);
 
                     return (
                         itemName === currentName &&
@@ -243,27 +251,42 @@ export default {
             ]);
             this.editors = editors || [];
 
-                let text = await fetchCsvPrefer(remoteCsv, csvPath);
-                let rows = parseCsv(text);
+            let text = await fetchCsvPrefer(remoteCsv, csvPath);
+            let rows = parseCsv(text);
 
-                // If the remote sheet doesn't look like the achievement list, fall back to the local CSV
-                const headerRow = (rows[0] || []).join(' ').toLowerCase();
-                if (!headerRow.includes('name') && !headerRow.includes('#') && !headerRow.includes('player video')) {
-                    try {
-                        const localResp = await fetch(csvPath);
-                        if (localResp && localResp.ok) {
-                            text = await localResp.text();
-                            rows = parseCsv(text);
-                        } else {
-                            console.warn('AchievementList: remote CSV header mismatch and local fetch failed', localResp && localResp.status);
-                        }
-                    } catch (err) {
-                        console.warn('AchievementList: local fetch failed', err && err.message);
+            // If the remote sheet doesn't look like the achievement list, fall back to the local CSV
+            const headerRow = (rows[0] || []).join(' ').toLowerCase();
+            if (!headerRow.includes('name') && !headerRow.includes('#') && !headerRow.includes('player video') && !headerRow.includes('player')) {
+                try {
+                    const localResp = await fetch(csvPath);
+                    if (localResp && localResp.ok) {
+                        text = await localResp.text();
+                        rows = parseCsv(text);
+                    } else {
+                        console.warn('AchievementList: remote CSV header mismatch and local fetch failed', localResp && localResp.status);
+                    }
+                } catch (err) {
+                    console.warn('AchievementList: local fetch failed', err && err.message);
+                }
+            }
+
+            const [header, ...dataRows] = rows;
+            const headers = header.map((col) => col.trim());
+
+            const getColVal = (values, row, possibleKeys, defaultIndex) => {
+                for (const k of possibleKeys) {
+                    const foundKey = Object.keys(values).find(
+                        (key) => key.trim().toLowerCase().replace(/\?/g, '') === k.toLowerCase().replace(/\?/g, '')
+                    );
+                    if (foundKey && values[foundKey] !== undefined && values[foundKey] !== '') {
+                        return values[foundKey];
                     }
                 }
-
-                const [header, ...dataRows] = rows;
-            const headers = header.map((col) => col.trim());
+                if (defaultIndex !== undefined && row[defaultIndex] !== undefined) {
+                    return row[defaultIndex].trim();
+                }
+                return '';
+            };
 
             const parsedEntries = dataRows
                 .map((row, index) => {
@@ -272,18 +295,29 @@ export default {
                         return acc;
                     }, {});
 
-                    const rank = (values['#'] || '').toString().trim();
-                    const percent = getPercentLabel(values['Name'] || '');
+                    const rawRank = getColVal(values, row, ['#', 'rank', 'x', 'id'], 0);
+                    const tagValue = getColVal(values, row, ['column 1', 'tag', 'old', 'type', ''], 4);
+                    const isOld = isPastRank(rawRank, tagValue);
+                    const name = getColVal(values, row, ['name'], 1);
+                    const notes = getColVal(values, row, ['notes'], 2);
+                    const player = getColVal(values, row, ['player', 'user'], 3);
+                    const date = getColVal(values, row, ['date'], 5);
+                    const video = getColVal(values, row, ['player video', 'video', 'link'], 6);
+                    const difficulty = getColVal(values, row, ['difficulty'], 7);
+                    const percent = getPercentLabel(name);
 
                     return {
                         id: index,
-                        rank: rank || String(index + 1),
-                        name: values['Name'] || '',
-                        notes: values['Notes'] || '',
-                        player: values['Player'] || '',
-                        date: values['Date'] || '',
-                        video: values['Player Video'] || '',
-                        difficulty: values['Difficulty'] || '',
+                        rank: isOld ? 'OLD' : (rawRank || String(index + 1)),
+                        rawRank,
+                        tag: tagValue,
+                        isOld,
+                        name,
+                        notes,
+                        player,
+                        date,
+                        video,
+                        difficulty,
                         percent,
                     };
                 })
@@ -291,14 +325,10 @@ export default {
 
             this.allEntries = parsedEntries;
             this.list = parsedEntries
-                .filter((achievement) => !isPastRank(achievement.rank))
+                .filter((achievement) => !achievement.isOld && !isPastRank(achievement.rank, achievement.tag))
                 .map((achievement, index) => ({
                     ...achievement,
-                    rank: Number.isNaN(Number(achievement.rank)) ? achievement.rank : Number(achievement.rank),
-                    displayRank: Number.isNaN(Number(achievement.rank)) ? achievement.rank : Number(achievement.rank),
-                }))
-                .map((achievement, index) => ({
-                    ...achievement,
+                    displayRank: index + 1,
                     rank: index + 1,
                 }));
 

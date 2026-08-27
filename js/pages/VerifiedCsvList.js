@@ -65,6 +65,19 @@ function parseCsv(text, delimiter = ',') {
     return rows;
 }
 
+function isPastRank(rank = '', extra = '') {
+    const normalized = String(rank || '').trim().toUpperCase();
+    const normalizedExtra = String(extra || '').trim().toUpperCase();
+    return (
+        normalized === 'PAST' ||
+        normalized === 'OLD' ||
+        normalized.startsWith('OLD') ||
+        normalized.startsWith('PAST') ||
+        normalizedExtra === 'OLD' ||
+        normalizedExtra === 'PAST'
+    );
+}
+
 export default {
     components: { Spinner, Sidebar },
     template: `
@@ -200,13 +213,12 @@ export default {
             const [editors] = await Promise.all([fetchEditors()]);
             this.editors = editors || [];
 
-            const response = await fetch(csvPath);
             let text = await fetchCsvPrefer(remoteCsv, csvPath);
             let rows = parseCsv(text);
 
             // Validate remote CSV looks like the achievement list; if not, fall back to local copy
             const headerRow = (rows[0] || []).join(' ').toLowerCase();
-            if (!headerRow.includes('name') && !headerRow.includes('#') && !headerRow.includes('player video')) {
+            if (!headerRow.includes('name') && !headerRow.includes('#') && !headerRow.includes('player video') && !headerRow.includes('player')) {
                 try {
                     const localResp = await fetch(csvPath);
                     if (localResp && localResp.ok) {
@@ -223,6 +235,21 @@ export default {
             const [header, ...dataRows] = rows;
             const headers = header.map((col) => col.trim());
 
+            const getColVal = (values, row, possibleKeys, defaultIndex) => {
+                for (const k of possibleKeys) {
+                    const foundKey = Object.keys(values).find(
+                        (key) => key.trim().toLowerCase().replace(/\?/g, '') === k.toLowerCase().replace(/\?/g, '')
+                    );
+                    if (foundKey && values[foundKey] !== undefined && values[foundKey] !== '') {
+                        return values[foundKey];
+                    }
+                }
+                if (defaultIndex !== undefined && row[defaultIndex] !== undefined) {
+                    return row[defaultIndex].trim();
+                }
+                return '';
+            };
+
             const parsedEntries = dataRows
                 .map((row, index) => {
                     const values = headers.reduce((acc, key, colIndex) => {
@@ -230,34 +257,40 @@ export default {
                         return acc;
                     }, {});
 
-                    const verifierKey = Object.keys(values).find((key) => {
-                        const normalized = key.toLowerCase().replace(/\?/g, '');
-                        return normalized === 'verifier';
-                    });
-                    const verifierValue = verifierKey ? values[verifierKey] : '';
-                    const percentMatch = (values['Name'] || '').match(/(\d{1,3})(?:\s*-\s*\d{1,3})?%/);
+                    const rawRank = getColVal(values, row, ['#', 'rank', 'x', 'id'], 0);
+                    const tagValue = getColVal(values, row, ['column 1', 'tag', 'old', 'type', ''], 4);
+                    const isOld = isPastRank(rawRank, tagValue);
+                    const name = getColVal(values, row, ['name'], 1);
+                    const notes = getColVal(values, row, ['notes'], 2);
+                    const player = getColVal(values, row, ['player', 'user'], 3);
+                    const date = getColVal(values, row, ['date'], 5);
+                    const video = getColVal(values, row, ['player video', 'video', 'link'], 6);
+                    const difficulty = getColVal(values, row, ['difficulty'], 7);
+                    const verifierValue = getColVal(values, row, ['verifier', 'verifier?'], 8);
+
+                    const percentMatch = name.match(/(\d{1,3})(?:\s*-\s*\d{1,3})?%/);
                     const percent = percentMatch ? Number(percentMatch[1]) : 100;
-                    const rawRank = (values['#'] || '').toString().trim();
-                    const achievementRank = rawRank && /^\d+$/.test(rawRank) ? Number(rawRank) : null;
+                    const achievementRank = !isOld && rawRank && /^\d+$/.test(rawRank) ? Number(rawRank) : null;
 
                     return {
                         id: index,
-                        name: values['Name'] || '',
-                        notes: values['Notes'] || '',
-                        player: values['Player'] || '',
-                        date: values['Date'] || '',
-                        video: values['Player Video'] || '',
-                        difficulty: values['Difficulty'] || '',
+                        name,
+                        notes,
+                        player,
+                        date,
+                        video,
+                        difficulty,
                         verifier: verifierValue,
                         percent,
                         achievementRank,
+                        isOld,
                     };
                 })
                 .filter((entry) => entry.name.trim() !== '');
 
             this.allEntries = parsedEntries;
             this.list = parsedEntries
-                .filter((entry) => entry.verifier.toLowerCase() === 'y')
+                .filter((entry) => !entry.isOld && entry.verifier.toLowerCase() === 'y')
                 .map((entry, index) => ({
                     ...entry,
                     rank: index + 1,
