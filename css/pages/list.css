@@ -304,6 +304,11 @@
     opacity: 0.85;
 }
 
+.page-list .meta iframe {
+    max-width: 100%;
+    border-radius: 0.5rem;
+}
+
 .page-list .list .level button .difficulty-icon {
     height: 1.4em; /* slightly larger than text */
     width: auto;

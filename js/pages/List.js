@@ -104,6 +104,14 @@ export default {
                     <p>
                         Have either source audio or clicks/taps in the video. Edited audio only does not count
                     </p>
+                    <iframe
+                        src="https://discord.com/widget?id=1513904060632137879&theme=dark"
+                        width="350"
+                        height="500"
+                        allowtransparency="true"
+                        frameborder="0"
+                        sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+                    ></iframe>
                 </div>
             </div>
         </main>
