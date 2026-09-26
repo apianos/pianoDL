@@ -1,11 +1,12 @@
 import { fetchEditors } from '../content.js';
-import { assignSlugsAndHashes, fetchCsvPrefer, slugify } from '../util.js';
+import { assignSlugsAndHashes, embed, fetchCsvPrefer, slugify } from '../util.js';
 import { store } from '../main.js';
 
 const changelogPath = '/data/changelog.csv';
 const achievementPath = '/data/pianoDL - piano achievement list (30).csv';
 const publishedSheet = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?gid=844974805&single=true&output=csv';
 const achievementSheet = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?gid=702241830&single=true&output=csv';
+const mentionsSheet = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?gid=500846361&single=true&output=csv';
 
 const roleIconMap = {
     owner: 'crown',
@@ -67,6 +68,41 @@ function rowsToObjects(text) {
         item[key] = row[index] || '';
         return item;
     }, {}));
+}
+
+function parseMentionLinks(text) {
+    return parseCsv(text)
+        .map((row) => String(row[0] || '').trim())
+        .filter((value) => /^https?:\/\//i.test(value));
+}
+
+function getYoutubeStartSeconds(video) {
+    let url;
+    try {
+        url = new URL(video);
+    } catch {
+        return 0;
+    }
+
+    const timestamp = url.searchParams.get('t') || url.searchParams.get('start') || '';
+    if (/^\d+$/.test(timestamp)) {
+        return Number(timestamp);
+    }
+
+    const parts = timestamp.match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/i);
+    if (!parts || !parts[0]) return 0;
+    return (Number(parts[1] || 0) * 3600) + (Number(parts[2] || 0) * 60) + Number(parts[3] || 0);
+}
+
+function getMentionEmbed(video) {
+    const source = embed(video);
+    if (!source) return '';
+    if (!video.includes('youtube.com') && !video.includes('youtu.be')) {
+        return source;
+    }
+
+    const start = getYoutubeStartSeconds(video);
+    return start > 0 ? `${source}?start=${start}` : source;
 }
 
 function isPastRank(value = '') {
@@ -215,6 +251,33 @@ export default {
                     </aside>
                 </section>
 
+                <section v-if="mentions.length > 0" class="home-mentions" aria-label="pianoDL mentions">
+                    <div class="home-section-heading">
+                        <div>
+                            <p class="home-kicker"></p>
+                            <h2>IN THE WILD</h2>
+                        </div>
+                        <span class="home-update-count">{{ mentionIndex + 1 }} / {{ mentions.length }}</span>
+                    </div>
+                    <div class="home-mentions__carousel">
+                        <button class="home-mentions__control" type="button" aria-label="Previous mention" @click="previousMention">&#8592;</button>
+                        <div class="home-mentions__frame">
+                            <iframe
+                                v-if="featuredEmbed"
+                                class="home-mentions__video"
+                                :src="featuredEmbed"
+                                :title="'pianoDL mention ' + (mentionIndex + 1)"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowfullscreen
+                            ></iframe>
+                            <a v-else class="home-mentions__unsupported" :href="featuredMention" target="_blank" rel="noreferrer noopener">
+                                Open this mention <span aria-hidden="true">&#8599;</span>
+                            </a>
+                        </div>
+                        <button class="home-mentions__control" type="button" aria-label="Next mention" @click="nextMention">&#8594;</button>
+                    </div>
+                    <a class="home-mentions__source" :href="featuredMention" target="_blank" rel="noreferrer noopener">Open video <span aria-hidden="true">&#8599;</span></a>
+                </section>
                 <section class="home-stats" aria-label="pianoDL community statistics">
                     <div class="home-stat">
                         <span class="home-stat__value">{{ rankedCount.toLocaleString() }}</span>
@@ -228,7 +291,6 @@ export default {
                         <span class="home-stat__value">10</span>
                         <span class="home-stat__label">community editors</span>
                     </div>
-                    
                 </section>
             </div>
         </main>
@@ -239,6 +301,8 @@ export default {
         editors: [],
         changelog: [],
         achievements: [],
+        mentions: [],
+        mentionIndex: 0,
         loading: true,
     }),
     computed: {
@@ -250,6 +314,12 @@ export default {
         },
         playerCount() {
             return new Set(this.achievements.map((entry) => entry.player.trim().toLowerCase()).filter(Boolean)).size;
+        },
+        featuredMention() {
+            return this.mentions[this.mentionIndex] || '';
+        },
+        featuredEmbed() {
+            return this.featuredMention ? getMentionEmbed(this.featuredMention) : '';
         },
     },
     methods: {
@@ -282,12 +352,21 @@ export default {
                 || this.achievements.find((entry) => entry.name.trim().toLowerCase() === level);
             return match ? match.slug : slugify(item.level || '');
         },
+        previousMention() {
+            if (this.mentions.length === 0) return;
+            this.mentionIndex = (this.mentionIndex - 1 + this.mentions.length) % this.mentions.length;
+        },
+        nextMention() {
+            if (this.mentions.length === 0) return;
+            this.mentionIndex = (this.mentionIndex + 1) % this.mentions.length;
+        },
     },
     async mounted() {
-        const [editorsResult, changelogResult, achievementsResult] = await Promise.allSettled([
+        const [editorsResult, changelogResult, achievementsResult, mentionsResult] = await Promise.allSettled([
             fetchEditors(),
             fetchCsvPrefer(publishedSheet, changelogPath),
             fetchCsvPrefer(achievementSheet, achievementPath),
+            fetchCsvPrefer(mentionsSheet, mentionsSheet),
         ]);
 
         if (editorsResult.status === 'fulfilled') {
@@ -311,6 +390,11 @@ export default {
             this.achievements = parseAchievements(achievementsResult.value);
         } else {
             console.warn('Home: achievement data could not be loaded', achievementsResult.reason);
+        }
+        if (mentionsResult.status === 'fulfilled') {
+            this.mentions = parseMentionLinks(mentionsResult.value);
+        } else {
+            console.warn('Home: video mentions could not be loaded', mentionsResult.reason);
         }
         this.loading = false;
     },
