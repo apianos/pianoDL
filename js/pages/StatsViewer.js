@@ -2,7 +2,7 @@ import { store } from '../main.js';
 import Spinner from '../components/Spinner.js';
 import Sidebar from '../components/List/Sidebar.js';
 import { fetchEditors } from '../content.js';
-import { fetchCsvPrefer } from '../util.js';
+import { fetchCsvPrefer, slugify, assignSlugsAndHashes } from '../util.js';
 
 const statsCsvPath = '/data/achievement_leaderboard (1).csv';
 const achievementCsvPath = '/data/pianoDL - piano achievement list (30).csv';
@@ -160,16 +160,14 @@ export default {
                             <ul v-if="selectedPlayer.details.completedLevels.length > 0" class="stats-detail-list">
                                 <li v-for="item in selectedPlayer.details.completedLevels" :key="item.name + item.date" class="stats-detail-item">
                                     <div class="stats-detail-copy">
-                                        <a
-                                            v-if="item.video"
+                                        <router-link
+                                            v-if="item.slug"
                                             class="stats-detail-link"
-                                            :href="item.video"
-                                            target="_blank"
-                                            rel="noreferrer noopener"
+                                            :to="'/achievement-list/' + item.slug"
                                         >
                                             <span class="type-label-md">{{ item.name || 'Unknown' }}</span>
                                             <span class="stats-detail-rank" v-if="item.rank">#{{ item.rank }}</span>
-                                        </a>
+                                        </router-link>
                                         <div v-else class="stats-detail-link stats-detail-link--text">
                                             <span class="type-label-md">{{ item.name || 'Unknown' }}</span>
                                             <span class="stats-detail-rank" v-if="item.rank">#{{ item.rank }}</span>
@@ -185,19 +183,17 @@ export default {
                             <ul v-if="selectedPlayer.details.verifiedLevels.length > 0" class="stats-detail-list">
                                 <li v-for="item in selectedPlayer.details.verifiedLevels" :key="item.name + item.date" class="stats-detail-item">
                                     <div class="stats-detail-copy">
-                                        <a
-                                            v-if="item.video"
+                                        <router-link
+                                            v-if="item.verifiedSlug || item.slug"
                                             class="stats-detail-link"
-                                            :href="item.video"
-                                            target="_blank"
-                                            rel="noreferrer noopener"
+                                            :to="'/verified-list/' + (item.verifiedSlug || item.slug)"
                                         >
                                             <span class="type-label-md">{{ item.name || 'Unknown' }}</span>
-                                            <span class="stats-detail-rank" v-if="item.rank">#{{ item.verified ? item.verifiedRank || item.rank : item.rank }}</span>
-                                        </a>
+                                            <span class="stats-detail-rank" v-if="item.verifiedRank || item.rank">#{{ item.verifiedRank || item.rank }}</span>
+                                        </router-link>
                                         <div v-else class="stats-detail-link stats-detail-link--text">
                                             <span class="type-label-md">{{ item.name || 'Unknown' }}</span>
-                                            <span class="stats-detail-rank" v-if="item.rank">#{{ item.verified ? item.verifiedRank || item.rank : item.rank }}</span>
+                                            <span class="stats-detail-rank" v-if="item.verifiedRank || item.rank">#{{ item.verifiedRank || item.rank }}</span>
                                         </div>
                                     </div>
                                     <p class="type-label-sm stats-detail-date" v-if="item.date">{{ item.date }}</p>
@@ -210,16 +206,14 @@ export default {
                             <ul v-if="selectedPlayer.details.runs.length > 0" class="stats-detail-list">
                                 <li v-for="item in selectedPlayer.details.runs" :key="item.name + item.date" class="stats-detail-item">
                                     <div class="stats-detail-copy">
-                                        <a
-                                            v-if="item.video"
+                                        <router-link
+                                            v-if="item.slug"
                                             class="stats-detail-link"
-                                            :href="item.video"
-                                            target="_blank"
-                                            rel="noreferrer noopener"
+                                            :to="'/achievement-list/' + item.slug"
                                         >
                                             <span class="type-label-md">{{ item.name || 'Unknown' }}</span>
                                             <span class="stats-detail-rank" v-if="item.rank">#{{ item.rank }}</span>
-                                        </a>
+                                        </router-link>
                                         <div v-else class="stats-detail-link stats-detail-link--text">
                                             <span class="type-label-md">{{ item.name || 'Unknown' }}</span>
                                             <span class="stats-detail-rank" v-if="item.rank">#{{ item.rank }}</span>
@@ -302,26 +296,102 @@ export default {
                 .filter((entry) => entry.username !== '')
                 .sort((a, b) => a.rank - b.rank);
 
-            const verifiedListRanks = new Map();
-            let verifiedRankIndex = 0;
-            achievementRows.slice(1).forEach((row) => {
-                const [rankValue, name, , , tagValue, , , , verifierValue] = row;
-                if (!isOldEntry({ rank: rankValue, tag: tagValue }) && (verifierValue || '').trim().toLowerCase() === 'y') {
-                    verifiedRankIndex += 1;
-                    verifiedListRanks.set(normalizePlayerName(name), verifiedRankIndex);
+            const [header, ...dataRows] = achievementRows;
+            const headers = (header || []).map((col) => col.trim());
+
+            const getColVal = (values, row, possibleKeys, defaultIndex) => {
+                for (const k of possibleKeys) {
+                    const foundKey = Object.keys(values).find(
+                        (key) => key.trim().toLowerCase().replace(/\?/g, '') === k.toLowerCase().replace(/\?/g, '')
+                    );
+                    if (foundKey && values[foundKey] !== undefined && values[foundKey] !== '') {
+                        return values[foundKey];
+                    }
+                }
+                if (defaultIndex !== undefined && row[defaultIndex] !== undefined) {
+                    return row[defaultIndex].trim();
+                }
+                return '';
+            };
+
+            const parsedAchievementEntries = dataRows
+                .map((row, index) => {
+                    const values = headers.reduce((acc, key, colIndex) => {
+                        acc[key] = row[colIndex] ? row[colIndex].trim() : '';
+                        return acc;
+                    }, {});
+
+                    const rawRank = getColVal(values, row, ['#', 'rank', 'x', 'id'], 0);
+                    const tagValue = getColVal(values, row, ['column 1', 'tag', 'old', 'type', ''], 4);
+                    const isOld = isOldEntry({ rank: rawRank, tag: tagValue });
+                    const name = getColVal(values, row, ['name'], 1);
+                    const notes = getColVal(values, row, ['notes'], 2);
+                    const player = getColVal(values, row, ['player', 'user'], 3);
+                    const date = getColVal(values, row, ['date'], 5);
+                    const video = getColVal(values, row, ['player video', 'video', 'link'], 6);
+                    const difficulty = getColVal(values, row, ['difficulty'], 7);
+                    const verifierValue = getColVal(values, row, ['verifier', 'verifier?'], 8);
+
+                    return {
+                        id: index,
+                        rawRank,
+                        tag: tagValue,
+                        isOld,
+                        name,
+                        notes,
+                        player,
+                        date,
+                        video,
+                        difficulty,
+                        verifier: verifierValue,
+                    };
+                })
+                .filter((entry) => entry.name.trim() !== '');
+
+            // Assign slugs to active achievement list
+            const validAchievementList = parsedAchievementEntries
+                .filter((achievement) => !achievement.isOld)
+                .map((achievement, index) => ({
+                    ...achievement,
+                    displayRank: index + 1,
+                    rank: index + 1,
+                }));
+            assignSlugsAndHashes(validAchievementList);
+
+            // Assign slugs to active verified list
+            const validVerifiedList = parsedAchievementEntries
+                .filter((entry) => !entry.isOld && (entry.verifier || '').toLowerCase() === 'y')
+                .map((entry, index) => ({
+                    ...entry,
+                    rank: index + 1,
+                }));
+            assignSlugsAndHashes(validVerifiedList);
+
+            const achievementMap = new Map();
+            validAchievementList.forEach((a) => achievementMap.set(a.id, a));
+
+            const verifiedMap = new Map();
+            validVerifiedList.forEach((v) => verifiedMap.set(v.id, v));
+
+            const verifiedByNameMap = new Map();
+            validVerifiedList.forEach((v) => {
+                const norm = normalizePlayerName(v.name);
+                if (!verifiedByNameMap.has(norm)) {
+                    verifiedByNameMap.set(norm, v);
                 }
             });
 
             const playerProfiles = new Map();
-            achievementRows.slice(1).forEach((row, index) => {
-                const [rankValue, name, notes, playerName, tagValue, date, video, difficulty, verifierValue] = row;
-                const normalizedName = normalizePlayerName(playerName);
-                const isLevelCompletion = !containsPercentLabel(name);
-                const isVerified = (verifierValue || '').trim().toLowerCase() === 'y';
+            parsedAchievementEntries.forEach((entry) => {
+                if (entry.isOld) return;
+
+                const normalizedName = normalizePlayerName(entry.player);
+                const isLevelCompletion = !containsPercentLabel(entry.name);
+                const isVerified = (entry.verifier || '').trim().toLowerCase() === 'y';
 
                 if (!playerProfiles.has(normalizedName)) {
                     playerProfiles.set(normalizedName, {
-                        username: playerName || 'Unknown',
+                        username: entry.player || 'Unknown',
                         completedLevels: [],
                         verifiedLevels: [],
                         runs: [],
@@ -329,36 +399,29 @@ export default {
                 }
 
                 const profile = playerProfiles.get(normalizedName);
-                const entry = {
-                    id: index,
-                    rank: rankValue || '',
-                    tag: tagValue || '',
-                    name: name || '',
-                    notes,
-                    player: playerName || '',
-                    date,
-                    video,
-                    difficulty,
+                const ach = achievementMap.get(entry.id);
+                const ver = verifiedMap.get(entry.id) || verifiedByNameMap.get(normalizePlayerName(entry.name));
+
+                const item = {
+                    id: entry.id,
+                    name: entry.name,
+                    player: entry.player,
+                    date: entry.date,
+                    video: entry.video,
+                    rank: ach ? ach.rank : null,
+                    slug: ach ? ach.slug : slugify(entry.name),
+                    verifiedRank: ver ? ver.rank : null,
+                    verifiedSlug: ver ? ver.slug : (isVerified ? slugify(entry.name) : null),
                     verified: isVerified,
-                    achievementRank: rankValue || '',
-                    verifiedRank: null,
                 };
 
-                if (isOldEntry(entry)) {
-                    return;
-                }
-
                 if (isLevelCompletion) {
-                    profile.completedLevels.push(entry);
+                    profile.completedLevels.push(item);
                     if (isVerified) {
-                        const verifiedName = normalizePlayerName(name);
-                        profile.verifiedLevels.push({
-                            ...entry,
-                            verifiedRank: verifiedListRanks.get(verifiedName) || null,
-                        });
+                        profile.verifiedLevels.push(item);
                     }
                 } else {
-                    profile.runs.push(entry);
+                    profile.runs.push(item);
                 }
             });
 

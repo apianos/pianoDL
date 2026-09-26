@@ -1,5 +1,5 @@
 import { store } from '../main.js';
-import { embed } from '../util.js';
+import { embed, assignSlugsAndHashes } from '../util.js';
 import { fetchEditors } from '../content.js';
 import { fetchCsvPrefer } from '../util.js';
 import Spinner from '../components/Spinner.js';
@@ -87,12 +87,12 @@ export default {
         <main v-else class="page-list">
             <div class="list-container">
                 <table class="list" v-if="list.length > 0">
-                    <tr v-for="(entry, i) in list" :key="entry.rank">
+                    <tr v-for="(entry, i) in list" :key="entry.slug || entry.rank">
                         <td class="rank">
                             <p class="type-label-lg">#{{ entry.rank }}</p>
                         </td>
                         <td class="level" :class="{ active: selected === i }">
-                            <button @click="selected = i">
+                            <button @click="selectLevel(i)">
                                 <img
                                     v-if="entry.difficulty"
                                     class="difficulty-icon"
@@ -132,6 +132,10 @@ export default {
                             target="_blank"
                             rel="noreferrer noopener"
                         >Video link</a>
+                        <span v-if="entry.video"> • </span>
+                        <button class="link-btn" @click="copyShareLink" :title="copied ? 'Copied URL!' : 'Copy direct link to this level'">
+                            {{ copied ? '✓ Copied link!' : 'Copy share link' }}
+                        </button>
                     </p>
                     <div class="victors-section" v-if="relatedEntries.length > 0">
                         <h2 class="type-title-lg">Records</h2>
@@ -167,8 +171,76 @@ export default {
         selected: 0,
         editors: [],
         errors: [],
+        copied: false,
         store,
     }),
+    watch: {
+        '$route.params.level'(newLevel) {
+            if (newLevel) {
+                this.selectByParam(newLevel);
+            }
+        },
+    },
+    methods: {
+        selectLevel(index) {
+            this.selected = index;
+            const entry = this.list[index];
+            if (entry && entry.slug) {
+                const basePath = this.$route.path.startsWith('/experimental-verified-list')
+                    ? '/experimental-verified-list'
+                    : '/verified-list';
+                if (this.$route.params.level !== entry.slug) {
+                    this.$router.replace({ path: `${basePath}/${entry.slug}` }).catch(() => {});
+                }
+            }
+        },
+        selectByParam(param) {
+            if (!param || !this.list || this.list.length === 0) return;
+            const query = String(param).trim().toLowerCase();
+
+            // 1. Exact slug match
+            let foundIndex = this.list.findIndex((item) => item.slug && item.slug.toLowerCase() === query);
+
+            // 2. Hash match
+            if (foundIndex === -1) {
+                foundIndex = this.list.findIndex((item) => item.hash && item.hash.toLowerCase() === query);
+            }
+
+            // 3. Base slug match
+            if (foundIndex === -1) {
+                foundIndex = this.list.findIndex((item) => item.baseSlug && item.baseSlug.toLowerCase() === query);
+            }
+
+            // 4. Rank number fallback
+            if (foundIndex === -1 && /^\d+$/.test(query)) {
+                const rankNum = parseInt(query, 10);
+                foundIndex = this.list.findIndex((item) => item.rank === rankNum);
+            }
+
+            if (foundIndex !== -1) {
+                this.selected = foundIndex;
+            }
+        },
+        async copyShareLink() {
+            try {
+                const entry = this.list[this.selected];
+                const basePath = this.$route.path.startsWith('/experimental-verified-list')
+                    ? '/experimental-verified-list'
+                    : '/verified-list';
+                let shareUrl = window.location.href;
+                if (entry && entry.slug && !window.location.hash.includes(entry.slug)) {
+                    shareUrl = `${window.location.origin}${window.location.pathname}#${basePath}/${entry.slug}`;
+                }
+                await navigator.clipboard.writeText(shareUrl);
+                this.copied = true;
+                setTimeout(() => {
+                    this.copied = false;
+                }, 2000);
+            } catch (err) {
+                console.warn('Failed to copy link:', err);
+            }
+        },
+    },
     computed: {
         entry() {
             return this.list[this.selected];
@@ -289,12 +361,18 @@ export default {
                 .filter((entry) => entry.name.trim() !== '');
 
             this.allEntries = parsedEntries;
-            this.list = parsedEntries
+            const validList = parsedEntries
                 .filter((entry) => !entry.isOld && entry.verifier.toLowerCase() === 'y')
                 .map((entry, index) => ({
                     ...entry,
                     rank: index + 1,
                 }));
+
+            this.list = assignSlugsAndHashes(validList);
+
+            if (this.$route.params.level) {
+                this.selectByParam(this.$route.params.level);
+            }
         } catch (error) {
             console.error('Failed to load verified CSV list:', error);
             this.errors.push('Failed to load verified list. Retry in a few minutes or notify list staff.');

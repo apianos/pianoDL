@@ -97,3 +97,59 @@ export async function fetchCsvPrefer(remoteUrl, localPath, timeoutMs = 6000) {
         throw err;
     }
 }
+
+export function slugify(text = '') {
+    return String(text || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/%/g, '')
+        .replace(/[\s\+/–—_.:,;!?()\[\]{}'"‘“”’`#@$*^=<>|\\]+/g, '-')
+        .replace(/[^\w\-]+/g, '')
+        .replace(/\-\-+/g, '-')
+        .replace(/^-+/, '')
+        .replace(/-+$/, '');
+}
+
+export function hashString(str = '') {
+    let hash = 0x811c9dc5;
+    const cleanStr = String(str || '').toLowerCase().trim();
+    for (let i = 0; i < cleanStr.length; i++) {
+        hash ^= cleanStr.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(36);
+}
+
+export function assignSlugsAndHashes(list = []) {
+    const slugCounts = {};
+
+    list.forEach((item) => {
+        item.baseSlug = slugify(item.name) || 'entry';
+        item.hash = hashString(`${item.name}|${item.player || ''}|${item.video || ''}|${item.date || ''}`);
+        slugCounts[item.baseSlug] = (slugCounts[item.baseSlug] || 0) + 1;
+    });
+
+    const usedSlugs = new Set();
+
+    list.forEach((item) => {
+        let candidate = item.baseSlug;
+
+        // If base name is shared by multiple entries, disambiguate with player name
+        if (slugCounts[item.baseSlug] > 1 && item.player) {
+            candidate = slugify(`${item.name}-${item.player}`);
+        }
+
+        // If candidate is still not unique, append part of hash
+        if (usedSlugs.has(candidate)) {
+            candidate = `${candidate}-${item.hash.slice(0, 4)}`;
+        }
+
+        usedSlugs.add(candidate);
+        item.slug = candidate;
+    });
+
+    return list;
+}
+

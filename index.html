@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=1024" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Piano Demonlist</title>
 
         <!-- Replace your server icon by uploading an image file named "list_icon.png"-->
@@ -23,6 +23,7 @@
             href="/css/pages/leaderboard.css"
         />
         <link rel="stylesheet" type="text/css" href="/css/pages/roulette.css" />
+        <link rel="stylesheet" type="text/css" href="/css/pages/home-lander.css" />
         <link rel="stylesheet" type="text/css" href="/css/components/nav.css" />
         <link rel="stylesheet" type="text/css" href="/css/components/btn.css" />
         <link
@@ -46,12 +47,12 @@
     </head>
     <body id="app">
         <header :class="{ dark: store.dark }">
-            <div class="logo">
+            <router-link class="logo" to="/">
                 <h2>pianoDL</h2>
                 <p>v1.0.0</p>
-            </div>
+            </router-link>
             <nav class="nav">
-                <router-link class="nav__tab" to="/">
+                <router-link class="nav__tab" to="/verified-list">
                     <span class="type-label-lg">Verified List</span>
                 </router-link>
                 <router-link class="nav__tab" to="/achievement-list">

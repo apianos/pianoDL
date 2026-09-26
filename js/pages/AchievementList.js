@@ -1,5 +1,5 @@
 import { store } from '../main.js';
-import { embed } from '../util.js';
+import { embed, assignSlugsAndHashes } from '../util.js';
 import { fetchCsvPrefer } from '../util.js';
 import { fetchEditors } from '../content.js';
 import Spinner from '../components/Spinner.js';
@@ -117,12 +117,12 @@ export default {
         <main v-else class="page-list">
             <div class="list-container">
                 <table class="list" v-if="list.length > 0">
-                    <tr v-for="(achievement, i) in list" :key="achievement.rank">
+                    <tr v-for="(achievement, i) in list" :key="achievement.slug || achievement.rank">
                         <td class="rank">
                             <p class="type-label-lg">#{{ achievement.rank }}</p>
                         </td>
                         <td class="level" :class="{ active: selected === i }">
-                            <button @click="selected = i">
+                            <button @click="selectLevel(i)">
                                 <img
                                     v-if="achievement.difficulty"
                                     class="difficulty-icon"
@@ -159,6 +159,10 @@ export default {
                             target="_blank"
                             rel="noreferrer noopener"
                         >Video link</a>
+                        <span v-if="entry.video"> • </span>
+                        <button class="link-btn" @click="copyShareLink" :title="copied ? 'Copied URL!' : 'Copy direct link to this achievement'">
+                            {{ copied ? '✓ Copied link!' : 'Copy share link' }}
+                        </button>
                     </p>
                     <div class="victors-section" v-if="relatedEntries.length > 0">
                         <h2 class="type-title-lg">Past Runs</h2>
@@ -191,8 +195,70 @@ export default {
         selected: 0,
         editors: [],
         errors: [],
+        copied: false,
         store,
     }),
+    watch: {
+        '$route.params.level'(newLevel) {
+            if (newLevel) {
+                this.selectByParam(newLevel);
+            }
+        },
+    },
+    methods: {
+        selectLevel(index) {
+            this.selected = index;
+            const entry = this.list[index];
+            if (entry && entry.slug) {
+                if (this.$route.params.level !== entry.slug) {
+                    this.$router.replace({ path: `/achievement-list/${entry.slug}` }).catch(() => {});
+                }
+            }
+        },
+        selectByParam(param) {
+            if (!param || !this.list || this.list.length === 0) return;
+            const query = String(param).trim().toLowerCase();
+
+            // 1. Exact slug match
+            let foundIndex = this.list.findIndex((item) => item.slug && item.slug.toLowerCase() === query);
+
+            // 2. Hash match
+            if (foundIndex === -1) {
+                foundIndex = this.list.findIndex((item) => item.hash && item.hash.toLowerCase() === query);
+            }
+
+            // 3. Base slug match
+            if (foundIndex === -1) {
+                foundIndex = this.list.findIndex((item) => item.baseSlug && item.baseSlug.toLowerCase() === query);
+            }
+
+            // 4. Rank number fallback
+            if (foundIndex === -1 && /^\d+$/.test(query)) {
+                const rankNum = parseInt(query, 10);
+                foundIndex = this.list.findIndex((item) => item.rank === rankNum || item.displayRank === rankNum);
+            }
+
+            if (foundIndex !== -1) {
+                this.selected = foundIndex;
+            }
+        },
+        async copyShareLink() {
+            try {
+                const entry = this.list[this.selected];
+                let shareUrl = window.location.href;
+                if (entry && entry.slug && !window.location.hash.includes(entry.slug)) {
+                    shareUrl = `${window.location.origin}${window.location.pathname}#/achievement-list/${entry.slug}`;
+                }
+                await navigator.clipboard.writeText(shareUrl);
+                this.copied = true;
+                setTimeout(() => {
+                    this.copied = false;
+                }, 2000);
+            } catch (err) {
+                console.warn('Failed to copy link:', err);
+            }
+        },
+    },
     computed: {
         entry() {
             return this.list[this.selected];
@@ -324,13 +390,19 @@ export default {
                 .filter((achievement) => achievement.name.trim() !== '');
 
             this.allEntries = parsedEntries;
-            this.list = parsedEntries
+            const validList = parsedEntries
                 .filter((achievement) => !achievement.isOld && !isPastRank(achievement.rank, achievement.tag))
                 .map((achievement, index) => ({
                     ...achievement,
                     displayRank: index + 1,
                     rank: index + 1,
                 }));
+
+            this.list = assignSlugsAndHashes(validList);
+
+            if (this.$route.params.level) {
+                this.selectByParam(this.$route.params.level);
+            }
 
             if (editorError) {
                 this.errors.push(editorError);
