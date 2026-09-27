@@ -32,6 +32,29 @@ export function getTiktokEmbedUrl(id) {
     return `https://www.tiktok.com/embed/v2/${id}`;
 }
 
+export function getRedditEmbedUrl(video) {
+    let url;
+    try {
+        url = new URL(video);
+    } catch {
+        return '';
+    }
+
+    const allowedHosts = ['reddit.com', 'www.reddit.com', 'old.reddit.com', 'new.reddit.com'];
+    if (!allowedHosts.includes(url.hostname.toLowerCase())) {
+        return '';
+    }
+
+    const match = url.pathname.match(/^\/r\/([\w-]+)\/comments\/([\da-z]+)(?:\/([^/]+))?\/?$/i);
+    if (!match) {
+        return '';
+    }
+
+    const [, subreddit, postId, slug = ''] = match;
+    const postPath = `/r/${subreddit}/comments/${postId}${slug ? `/${slug}` : ''}/`;
+    return `https://embed.reddit.com${postPath}?embed=true`;
+}
+
 export function embed(video) {
     if (video.includes('youtube.com') || video.includes('youtu.be')) {
         return `https://www.youtube.com/embed/${getYoutubeIdFromUrl(video)}`;
@@ -39,6 +62,8 @@ export function embed(video) {
         return getInstagramEmbedUrl(getInstagramIdFromUrl(video));
     } else if (video.includes('tiktok.com')) {
         return getTiktokEmbedUrl(getTiktokIdFromUrl(video));
+    } else if (video.includes('reddit.com')) {
+        return getRedditEmbedUrl(video);
     }
     return '';
 }

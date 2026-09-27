@@ -169,6 +169,9 @@ export default {
                         <router-link class="home-action home-action--primary" to="/achievement-list">
                             <span>View hardest achievement list</span><span aria-hidden="true">&#8594;</span>
                         </router-link>
+                        <router-link class="home-action home-action--outline" to="/stats-viewer">
+                            <span>View stats leaderboard</span><span aria-hidden="true">&#8594;</span>
+                        </router-link>
                         <a class="home-action home-action--discord" href="https://discord.gg/vmAZNat2Wf" target="_blank" rel="noreferrer noopener">
                             <img src="/assets/discord.svg" alt="" /> Join Discord
                         </a>
