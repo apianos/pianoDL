@@ -113,6 +113,15 @@
     padding-right: 2rem;
 }
 
+.page-list .meta-container {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.page-list .meta-container::-webkit-scrollbar {
+    display: none;
+}
+
 .page-list .list {
     table-layout: auto;
 }

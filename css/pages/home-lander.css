@@ -4,8 +4,14 @@
     min-height: 0;
     flex: 1;
     overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     background: var(--color-background);
     color: var(--color-on-background);
+}
+
+.page-home::-webkit-scrollbar {
+    display: none;
 }
 
 .home-hero {
