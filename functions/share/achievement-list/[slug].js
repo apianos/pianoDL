@@ -1,0 +1,249 @@
+import { assignSlugsAndHashes } from '../../../js/util.js';
+
+const csvPath = '/data/pianoDL - piano achievement list (30).csv';
+const remoteCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?gid=702241830&single=true&output=csv';
+const fallbackImage = '/list_icon.png';
+
+function parseCsv(text) {
+    const rows = [];
+    let row = [];
+    let field = '';
+    let insideQuotes = false;
+
+    for (let index = 0; index < text.length; index += 1) {
+        const character = text[index];
+        if (insideQuotes) {
+            if (character === '"') {
+                if (text[index + 1] === '"') {
+                    field += '"';
+                    index += 1;
+                } else {
+                    insideQuotes = false;
+                }
+            } else {
+                field += character;
+            }
+        } else if (character === '"') {
+            insideQuotes = true;
+        } else if (character === ',') {
+            row.push(field.trim());
+            field = '';
+        } else if (character === '\n') {
+            row.push(field.trim());
+            rows.push(row);
+            row = [];
+            field = '';
+        } else if (character !== '\r') {
+            field += character;
+        }
+    }
+
+    row.push(field.trim());
+    if (row.length > 1 || row[0] !== '') rows.push(row);
+    return rows;
+}
+
+function isPastEntry(rank, tag) {
+    return /^(?:old|past)(?:\b|\s)/i.test(String(rank || '').trim())
+        || /^(?:old|past)(?:\b|\s)/i.test(String(tag || '').trim());
+}
+
+function getValue(row, indexes, keys) {
+    for (const key of keys) {
+        const index = indexes.get(key);
+        if (index !== undefined && row[index]) return row[index].trim();
+    }
+    return '';
+}
+
+function parseAchievements(text) {
+    const [header = [], ...rows] = parseCsv(text);
+    const indexes = new Map(header.map((value, index) => [
+        value.trim().toLowerCase().replace(/\?/g, ''),
+        index,
+    ]));
+
+    const entries = rows.map((row) => {
+        const name = getValue(row, indexes, ['name']);
+        const rank = getValue(row, indexes, ['#', 'rank', 'x', 'id']);
+        const tag = getValue(row, indexes, ['column 1', 'tag', 'old', 'type']);
+        return {
+            name,
+            player: getValue(row, indexes, ['player', 'user']),
+            video: getValue(row, indexes, ['player video', 'video', 'link']),
+            date: getValue(row, indexes, ['date']),
+            difficulty: getValue(row, indexes, ['difficulty']),
+            rank,
+            tag,
+        };
+    }).filter((entry) => entry.name && !isPastEntry(entry.rank, entry.tag));
+
+    return assignSlugsAndHashes(entries).map((entry, index) => ({
+        ...entry,
+        rank: index + 1,
+    }));
+}
+
+function isAchievementCsv(text) {
+    const header = (parseCsv(text)[0] || []).join(' ').toLowerCase();
+    return header.includes('name')
+        && (header.includes('#') || header.includes('player video') || header.includes('player'));
+}
+
+async function getAchievementCsv(origin) {
+    try {
+        const response = await fetch(remoteCsv, { signal: AbortSignal.timeout(4000) });
+        if (response.ok) {
+            const text = await response.text();
+            if (isAchievementCsv(text)) return text;
+        }
+    } catch {
+        // Fall back to the checked-in data if the published sheet is unavailable.
+    }
+
+    const response = await fetch(new URL(csvPath, origin));
+    if (!response.ok) throw new Error('Achievement CSV unavailable');
+    const text = await response.text();
+    if (!isAchievementCsv(text)) throw new Error('Achievement CSV has an invalid header');
+    return text;
+}
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+    })[character]);
+}
+
+function getYoutubeThumbnail(video) {
+    let url;
+    try {
+        url = new URL(video);
+    } catch {
+        return '';
+    }
+
+    const hostname = url.hostname.toLowerCase();
+    if (!['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'www.youtu.be'].includes(hostname)) {
+        return '';
+    }
+
+    const segments = url.pathname.split('/').filter(Boolean);
+    const id = hostname.endsWith('youtu.be')
+        ? segments[0]
+        : url.searchParams.get('v') || (['embed', 'shorts', 'live'].includes(segments[0]) ? segments[1] : '');
+    return id && /^[\w-]{6,}$/.test(id)
+        ? `https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`
+        : '';
+}
+
+async function getTikTokThumbnail(video) {
+    let url;
+    try {
+        url = new URL(video);
+    } catch {
+        return '';
+    }
+
+    const hostname = url.hostname.toLowerCase();
+    if (!['tiktok.com', 'www.tiktok.com', 'm.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com'].includes(hostname)) {
+        return '';
+    }
+
+    try {
+        const response = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url.href)}`, {
+            signal: AbortSignal.timeout(2500),
+        });
+        if (!response.ok) return '';
+        const thumbnail = new URL((await response.json()).thumbnail_url);
+        if (!['https:', 'http:'].includes(thumbnail.protocol)
+            || !/\.tiktokcdn(?:-us)?\.com$/i.test(thumbnail.hostname)) {
+            return '';
+        }
+        return thumbnail.href;
+    } catch {
+        return '';
+    }
+}
+
+async function getPreviewImage(entry, origin) {
+    const youtubeThumbnail = getYoutubeThumbnail(entry.video);
+    if (youtubeThumbnail) return youtubeThumbnail;
+
+    const tiktokThumbnail = await getTikTokThumbnail(entry.video);
+    if (tiktokThumbnail) return tiktokThumbnail;
+
+    return new URL(fallbackImage, origin).href;
+}
+
+function createSharePage(entry, origin, imageUrl) {
+    const shareUrl = new URL(`/share/achievement-list/${encodeURIComponent(entry.slug)}`, origin).href;
+    const appUrl = new URL(`/#/achievement-list/${encodeURIComponent(entry.slug)}`, origin).href;
+    const title = `${entry.name} | pianoDL`;
+    const description = [
+        entry.player ? `Played by ${entry.player}` : '',
+        `Achievement #${entry.rank}`,
+        entry.difficulty ? entry.difficulty.replace(/-/g, ' ') : '',
+    ].filter(Boolean).join(' · ');
+    const safeTitle = escapeHtml(title);
+    const safeDescription = escapeHtml(description);
+    const safeImageUrl = escapeHtml(imageUrl);
+    const safeShareUrl = escapeHtml(shareUrl);
+    const safeAppUrl = JSON.stringify(appUrl).replace(/</g, '\\u003c');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${safeTitle}</title>
+<meta name="description" content="${safeDescription}">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="pianoDL">
+<meta property="og:title" content="${safeTitle}">
+<meta property="og:description" content="${safeDescription}">
+<meta property="og:url" content="${safeShareUrl}">
+<meta property="og:image" content="${safeImageUrl}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${safeTitle}">
+<meta name="twitter:description" content="${safeDescription}">
+<meta name="twitter:image" content="${safeImageUrl}">
+<script>window.location.replace(${safeAppUrl});</script>
+</head>
+<body><p>Opening <a href="${escapeHtml(appUrl)}">${safeTitle}</a>…</p></body>
+</html>`;
+}
+
+export async function onRequest({ request, params }) {
+    const slug = String(params.slug || '').toLowerCase();
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+        return new Response('Not found', { status: 404 });
+    }
+
+    const origin = new URL(request.url).origin;
+    let csvText;
+    try {
+        csvText = await getAchievementCsv(origin);
+    } catch {
+        return new Response('Achievement data is temporarily unavailable.', {
+            status: 503,
+            headers: { 'Cache-Control': 'no-store' },
+        });
+    }
+
+    const entry = parseAchievements(csvText).find((item) => item.slug === slug);
+    if (!entry) return new Response('Achievement not found', { status: 404 });
+
+    const imageUrl = await getPreviewImage(entry, origin);
+    return new Response(createSharePage(entry, origin, imageUrl), {
+        headers: {
+            'Cache-Control': 'public, max-age=300, s-maxage=300',
+            'Content-Type': 'text/html; charset=utf-8',
+            'X-Content-Type-Options': 'nosniff',
+        },
+    });
+}
