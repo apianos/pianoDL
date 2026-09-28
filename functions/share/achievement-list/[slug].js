@@ -140,6 +140,35 @@ function getYoutubeThumbnail(video) {
         : '';
 }
 
+function isTikTokUrl(url) {
+    return ['tiktok.com', 'www.tiktok.com', 'm.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com']
+        .includes(url.hostname.toLowerCase());
+}
+
+function isInstagramUrl(url) {
+    return ['instagram.com', 'www.instagram.com', 'm.instagram.com']
+        .includes(url.hostname.toLowerCase())
+        && /^\/(?:p|reel|reels|tv)\/[\w-]+\/?$/i.test(url.pathname);
+}
+
+async function fetchProviderThumbnail(endpoint, allowedHost) {
+    try {
+        const response = await fetch(endpoint, {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(5000),
+        });
+        if (!response.ok) return '';
+
+        const thumbnail = new URL((await response.json()).thumbnail_url);
+        if (thumbnail.protocol !== 'https:' || !allowedHost(thumbnail.hostname.toLowerCase())) {
+            return '';
+        }
+        return thumbnail.href;
+    } catch {
+        return '';
+    }
+}
+
 async function getTikTokThumbnail(video) {
     let url;
     try {
@@ -148,25 +177,26 @@ async function getTikTokThumbnail(video) {
         return '';
     }
 
-    const hostname = url.hostname.toLowerCase();
-    if (!['tiktok.com', 'www.tiktok.com', 'm.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com'].includes(hostname)) {
+    if (!isTikTokUrl(url)) {
         return '';
     }
 
+    const endpoint = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url.href)}`;
+    return fetchProviderThumbnail(endpoint, (hostname) => /(?:^|\.)tiktokcdn(?:-[a-z0-9]+)?\.com$/i.test(hostname));
+}
+
+async function getInstagramThumbnail(video) {
+    let url;
     try {
-        const response = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url.href)}`, {
-            signal: AbortSignal.timeout(2500),
-        });
-        if (!response.ok) return '';
-        const thumbnail = new URL((await response.json()).thumbnail_url);
-        if (!['https:', 'http:'].includes(thumbnail.protocol)
-            || !/\.tiktokcdn(?:-us)?\.com$/i.test(thumbnail.hostname)) {
-            return '';
-        }
-        return thumbnail.href;
+        url = new URL(video);
     } catch {
         return '';
     }
+
+    if (!isInstagramUrl(url)) return '';
+
+    const endpoint = `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(url.href)}`;
+    return fetchProviderThumbnail(endpoint, (hostname) => /(?:^|\.)(?:cdninstagram\.com|fbcdn\.net)$/i.test(hostname));
 }
 
 async function getPreviewImage(entry, origin) {
@@ -176,12 +206,15 @@ async function getPreviewImage(entry, origin) {
     const tiktokThumbnail = await getTikTokThumbnail(entry.video);
     if (tiktokThumbnail) return tiktokThumbnail;
 
+    const instagramThumbnail = await getInstagramThumbnail(entry.video);
+    if (instagramThumbnail) return instagramThumbnail;
+
     return new URL(fallbackImage, origin).href;
 }
 
 function createSharePage(entry, origin, imageUrl) {
     const shareUrl = new URL(`/achievement-list/${encodeURIComponent(entry.slug)}`, origin).href;
-    const title = `${entry.name} | pianoDL`;
+    const title = `${entry.name}`;
     const description = [
         entry.player ? `Played by ${entry.player}` : '',
         `Achievement #${entry.rank}`,
