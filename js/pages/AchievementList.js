@@ -247,7 +247,7 @@ export default {
                 const entry = this.list[this.selected];
                 let shareUrl = window.location.href;
                 if (entry && entry.slug) {
-                    shareUrl = `${window.location.origin}/share/achievement-list/${encodeURIComponent(entry.slug)}`;
+                    shareUrl = `${window.location.origin}/achievement-list/${encodeURIComponent(entry.slug)}`;
                 }
                 await navigator.clipboard.writeText(shareUrl);
                 this.copied = true;

@@ -180,8 +180,7 @@ async function getPreviewImage(entry, origin) {
 }
 
 function createSharePage(entry, origin, imageUrl) {
-    const shareUrl = new URL(`/share/achievement-list/${encodeURIComponent(entry.slug)}`, origin).href;
-    const appUrl = new URL(`/#/achievement-list/${encodeURIComponent(entry.slug)}`, origin).href;
+    const shareUrl = new URL(`/achievement-list/${encodeURIComponent(entry.slug)}`, origin).href;
     const title = `${entry.name} | pianoDL`;
     const description = [
         entry.player ? `Played by ${entry.player}` : '',
@@ -192,16 +191,8 @@ function createSharePage(entry, origin, imageUrl) {
     const safeDescription = escapeHtml(description);
     const safeImageUrl = escapeHtml(imageUrl);
     const safeShareUrl = escapeHtml(shareUrl);
-    const safeAppUrl = JSON.stringify(appUrl).replace(/</g, '\\u003c');
-
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${safeTitle}</title>
+    const metadata = `
 <meta name="description" content="${safeDescription}">
-<meta name="robots" content="index, follow">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="pianoDL">
 <meta property="og:title" content="${safeTitle}">
@@ -211,11 +202,9 @@ function createSharePage(entry, origin, imageUrl) {
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${safeTitle}">
 <meta name="twitter:description" content="${safeDescription}">
-<meta name="twitter:image" content="${safeImageUrl}">
-<script>window.location.replace(${safeAppUrl});</script>
-</head>
-<body><p>Opening <a href="${escapeHtml(appUrl)}">${safeTitle}</a>…</p></body>
-</html>`;
+<meta name="twitter:image" content="${safeImageUrl}">`;
+
+    return { metadata, safeTitle };
 }
 
 export async function onRequest({ request, params }) {
@@ -225,6 +214,10 @@ export async function onRequest({ request, params }) {
     }
 
     const origin = new URL(request.url).origin;
+    if (new URL(request.url).pathname.startsWith('/share/')) {
+        return Response.redirect(new URL(`/achievement-list/${encodeURIComponent(slug)}`, origin), 301);
+    }
+
     let csvText;
     try {
         csvText = await getAchievementCsv(origin);
@@ -239,7 +232,23 @@ export async function onRequest({ request, params }) {
     if (!entry) return new Response('Achievement not found', { status: 404 });
 
     const imageUrl = await getPreviewImage(entry, origin);
-    return new Response(createSharePage(entry, origin, imageUrl), {
+    const { metadata, safeTitle } = createSharePage(entry, origin, imageUrl);
+    const appResponse = await fetch(new URL('/', origin));
+    if (!appResponse.ok) {
+        return new Response('Application shell is temporarily unavailable.', {
+            status: 503,
+            headers: { 'Cache-Control': 'no-store' },
+        });
+    }
+
+    let html = await appResponse.text();
+    html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${safeTitle}</title>`);
+    if (!/<\/head>/i.test(html)) {
+        return new Response('Application shell has invalid HTML.', { status: 503 });
+    }
+    html = html.replace(/<\/head>/i, `${metadata}\n</head>`);
+
+    return new Response(html, {
         headers: {
             'Cache-Control': 'public, max-age=300, s-maxage=300',
             'Content-Type': 'text/html; charset=utf-8',

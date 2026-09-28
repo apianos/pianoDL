@@ -228,8 +228,8 @@ export default {
                     ? '/experimental-verified-list'
                     : '/verified-list';
                 let shareUrl = window.location.href;
-                if (entry && entry.slug && !window.location.hash.includes(entry.slug)) {
-                    shareUrl = `${window.location.origin}${window.location.pathname}#${basePath}/${entry.slug}`;
+                if (entry && entry.slug) {
+                    shareUrl = `${window.location.origin}${basePath}/${encodeURIComponent(entry.slug)}`;
                 }
                 await navigator.clipboard.writeText(shareUrl);
                 this.copied = true;
