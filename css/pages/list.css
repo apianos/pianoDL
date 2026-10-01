@@ -202,6 +202,40 @@
     aspect-ratio: 16/9;
     min-height: 28rem;
 }
+.page-list .level-container .level .video-placeholder {
+    width: 100%;
+    min-height: 28rem;
+    aspect-ratio: 16/9;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 2rem;
+    border: 1px solid #454951;
+    border-radius: 4px;
+    background: #202127;
+    color: #fff;
+    text-align: left;
+}
+.page-list .level-container .level .video-placeholder img {
+    width: 3rem;
+    height: 3rem;
+    flex: 0 0 auto;
+    filter: brightness(0) invert(1);
+}
+.page-list .level-container .level .video-placeholder p {
+    margin: 0;
+    color: #c8c9cb;
+    line-height: 1.5;
+}
+.page-list .level-container .level .video-placeholder .video-placeholder__title {
+    margin-bottom: 0.5rem;
+    color: #fff;
+    font-family: "Lexend Deca", sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
 .page-list .level-container .level .video-caption {
     margin-top: 0.35rem;
     color: var(--color-on-background);
