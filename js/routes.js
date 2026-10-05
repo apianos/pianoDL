@@ -16,5 +16,6 @@ export default [
     { path: '/experimental-verified-list/:level', component: VerifiedCsvList },
     { path: '/leaderboard', component: Leaderboard },
     { path: '/stats-viewer', component: StatsViewer },
+    { path: '/stats-viewer/:player', component: StatsViewer },
     { path: '/roulette', component: Roulette },
 ];

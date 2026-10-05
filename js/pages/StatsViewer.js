@@ -132,7 +132,7 @@ export default {
                                 <p>#{{ entry.rank }}</p>
                             </td>
                             <td class="user">
-                                <button class="stats-player-button" @click="selectedPlayerName = entry.username">
+                                <button class="stats-player-button" @click="selectPlayer(entry)">
                                     <span class="type-label-md">{{ entry.username || 'Unknown' }}</span>
                                 </button>
                             </td>
@@ -238,14 +238,40 @@ export default {
     data: () => ({
         loading: true,
         entries: [],
-        selectedPlayerName: '',
+        selectedPlayerSlug: '',
         editors: [],
         errors: [],
         store,
     }),
+    watch: {
+        '$route.params.player'(playerSlug) {
+            if (!this.entries.length) return;
+            if (!this.selectPlayerByParam(playerSlug)) {
+                this.selectPlayer(this.entries[0]);
+            }
+        },
+    },
+    methods: {
+        selectPlayer(entry) {
+            if (!entry) return;
+            this.selectedPlayerSlug = entry.slug;
+            if (this.$route.params.player !== entry.slug) {
+                this.$router.replace({ path: `/stats-viewer/${entry.slug}` }).catch(() => {});
+            }
+        },
+        selectPlayerByParam(param) {
+            if (!param) return false;
+            const query = String(param).trim().toLowerCase();
+            const entry = this.entries.find((item) => item.slug.toLowerCase() === query)
+                || this.entries.find((item) => String(item.rank) === query);
+            if (!entry) return false;
+            this.selectPlayer(entry);
+            return true;
+        },
+    },
     computed: {
         selectedPlayer() {
-            return this.entries.find((entry) => entry.username === this.selectedPlayerName) || this.entries[0] || null;
+            return this.entries.find((entry) => entry.slug === this.selectedPlayerSlug) || this.entries[0] || null;
         },
     },
     async mounted() {
@@ -430,6 +456,7 @@ export default {
                 const details = playerProfiles.get(normalizedName);
                 return {
                     ...entry,
+                    slug: `${slugify(entry.username) || 'player'}-${entry.rank}`,
                     details: details ? {
                         ...details,
                         completedLevels: dedupeEntries(details.completedLevels).sort(sortByDate),
@@ -445,7 +472,9 @@ export default {
             });
 
             if (this.entries.length > 0) {
-                this.selectedPlayerName = this.entries[0].username;
+                if (!this.selectPlayerByParam(this.$route.params.player)) {
+                    this.selectPlayer(this.entries[0]);
+                }
             }
         } catch (error) {
             console.error('Failed to load stats viewer:', error);
