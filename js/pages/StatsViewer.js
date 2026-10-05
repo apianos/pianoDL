@@ -456,7 +456,7 @@ export default {
                 const details = playerProfiles.get(normalizedName);
                 return {
                     ...entry,
-                    slug: `${slugify(entry.username) || 'player'}-${entry.rank}`,
+                    slug: slugify(entry.username) || 'player',
                     details: details ? {
                         ...details,
                         completedLevels: dedupeEntries(details.completedLevels).sort(sortByDate),
