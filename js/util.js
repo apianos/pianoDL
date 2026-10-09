@@ -1,3 +1,5 @@
+export const SHOW_LIST_POINTS = false;
+
 // https://stackoverflow.com/questions/3452546/how-do-i-get-the-youtube-video-id-from-a-url
 export function getYoutubeIdFromUrl(url) {
     return url.match(
@@ -97,30 +99,87 @@ export function shuffle(array) {
 }
 
 export async function fetchCsvPrefer(remoteUrl, localPath, timeoutMs = 6000) {
+    const result = await fetchCsvPreferWithStatus(remoteUrl, localPath, timeoutMs);
+    return result.text;
+}
+
+export async function fetchCsvPreferWithStatus(remoteUrl, localPath, timeoutMs = 6000) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        const resp = await fetch(remoteUrl, { signal: controller.signal });
-        clearTimeout(timeout);
+        const resp = await fetch(remoteUrl, { signal: controller.signal, cache: 'no-store' });
         if (resp && resp.ok) {
-            return await resp.text();
+            const text = await resp.text();
+            return { text, source: 'published', checkedAt: new Date().toISOString() };
         }
         console.warn('fetchCsvPrefer: remote response not ok', resp && resp.status);
     } catch (err) {
         console.warn('fetchCsvPrefer: remote fetch failed', err && err.message);
+    } finally {
+        clearTimeout(timeout);
     }
 
     // fallback to local path
     try {
-        const local = await fetch(localPath);
+        const local = await fetch(localPath, { cache: 'no-store' });
         if (local && local.ok) {
-            return await local.text();
+            const text = await local.text();
+            return { text, source: 'local', checkedAt: new Date().toISOString() };
         }
         throw new Error('Local fetch failed: ' + (local && local.status));
     } catch (err) {
         console.error('fetchCsvPrefer: both remote and local fetch failed', err && err.message);
         throw err;
     }
+}
+
+export function parseSummandsByPlayer(rows = []) {
+    const headers = (rows[0] || []).map((header) => header.trim().toLowerCase());
+    const playerIndex = headers.indexOf('player');
+    const summandsIndex = headers.indexOf('summands');
+    const summandsByPlayer = new Map();
+
+    if (playerIndex === -1 || summandsIndex === -1) return summandsByPlayer;
+
+    rows.slice(1).forEach((row) => {
+        const player = (row[playerIndex] || '').trim().toLowerCase();
+        if (!player) return;
+        const summands = (row[summandsIndex] || '')
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean);
+        summandsByPlayer.set(player, summands);
+    });
+
+    return summandsByPlayer;
+}
+
+export function describeCsvSource(results = []) {
+    if (results.some((result) => result.source === 'local')) {
+        return {
+            state: 'warning',
+            message: 'Local backup loaded; this data may be out of date.',
+        };
+    }
+
+    if (results.length === 0 || results.some((result) => result.source !== 'published')) {
+        return {
+            state: 'warning',
+            message: 'The published data could not be verified.',
+        };
+    }
+
+    const checkedAt = Math.max(...results.map((result) => Date.parse(result.checkedAt) || 0));
+    const time = new Date(checkedAt).toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+    return {
+        state: 'published',
+        message: `Up to date on ${time}`,
+    };
 }
 
 export function slugify(text = '') {

@@ -14,13 +14,17 @@ export default {
             type: Array,
             default: () => [],
         },
+        dataStatus: {
+            type: Object,
+            default: null,
+        },
     },
     template: `
         <div class="meta-container">
             <div class="meta">
-                <div class="errors" v-show="$slots.default">
-                    <slot></slot>
-                </div>
+                <p v-if="dataStatus" class="data-status" :class="'data-status--' + dataStatus.state" role="status">
+                    {{ dataStatus.message }}
+                </p>
                 <div class="og">
                     <p class="type-label-md">Website layout made by <a href="https://tsl.pages.dev/" target="_blank">TheShittyList</a></p>
                 </div>

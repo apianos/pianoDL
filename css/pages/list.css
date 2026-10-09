@@ -6,6 +6,31 @@
 .page-list {
     grid-template-columns: minmax(22rem, 1fr) minmax(24rem, 2fr) minmax(16em, 1fr);
 }
+.page-list .data-status {
+    margin: 0 0 1rem;
+    padding: 0.55rem 0.7rem;
+    border-left: 3px solid #267447;
+    background: #eaf5ed;
+    color: #195b36;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+.page-list .data-status--warning {
+    border-left-color: #a45b00;
+    background: #fff5dc;
+    color: #714700;
+}
+.page-list .meta .data-status {
+    margin: 0;
+}
+main.dark .page-list .data-status {
+    background: #173b2a;
+    color: #c2e8ce;
+}
+main.dark .page-list .data-status--warning {
+    background: #453313;
+    color: #f2d99c;
+}
 .page-list--stats {
     grid-template-columns: minmax(24rem, 1fr) minmax(24rem, 2fr) minmax(16rem, 1fr);
 }

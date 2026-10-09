@@ -1,12 +1,13 @@
 import { store } from '../main.js';
-import { embed, assignSlugsAndHashes } from '../util.js';
-import { fetchCsvPrefer } from '../util.js';
+import { embed, assignSlugsAndHashes, fetchCsvPreferWithStatus, describeCsvSource, parseSummandsByPlayer, SHOW_LIST_POINTS } from '../util.js';
 import { fetchEditors } from '../content.js';
 import Spinner from '../components/Spinner.js';
 import Sidebar from '../components/List/Sidebar.js';
 
 const csvPath = '/data/pianoDL - piano achievement list (30).csv';
 const remoteCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?gid=702241830&single=true&output=csv';
+const statsCsvPath = '/data/achievement_leaderboard (1).csv';
+const remoteStatsCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?gid=1658804691&single=true&output=csv';
 
 function normalizeAchievementTitle(title = '') {
     return title
@@ -150,6 +151,11 @@ export default {
 
                         <div class="type-title-sm">Date</div>
                         <p class="type-body"><span>{{ entry.date || 'Unknown' }}</span></p>
+
+                        <template v-if="showListPoints">
+                            <div class="type-title-sm">List Points</div>
+                            <p class="type-body"><span>{{ entry.listPoints ?? 'Unavailable' }}</span></p>
+                        </template>
                     </div>
                     <iframe v-if="video" class="video" id="videoframe" :src="video" frameborder="0"></iframe>
                     <div v-else-if="entry.video" class="video-placeholder" role="status">
@@ -190,7 +196,7 @@ export default {
                     </div>
                 </div>
             </div>
-            <Sidebar :editors="editors">
+            <Sidebar :editors="editors" :data-status="dataStatus">
                 <p class="error" v-for="error of errors" :key="error">{{ error }}</p>
             </Sidebar>
         </main>
@@ -203,6 +209,8 @@ export default {
         editors: [],
         errors: [],
         copied: false,
+        dataStatus: null,
+        showListPoints: SHOW_LIST_POINTS,
         store,
     }),
     watch: {
@@ -334,24 +342,37 @@ export default {
             ]);
             this.editors = editors || [];
 
-            let text = await fetchCsvPrefer(remoteCsv, csvPath);
+            const [csvResult, statsResult] = await Promise.all([
+                fetchCsvPreferWithStatus(remoteCsv, csvPath),
+                SHOW_LIST_POINTS
+                    ? fetchCsvPreferWithStatus(remoteStatsCsv, statsCsvPath)
+                    : Promise.resolve(null),
+            ]);
+            let text = csvResult.text;
             let rows = parseCsv(text);
+            const summandsByPlayer = statsResult
+                ? parseSummandsByPlayer(parseCsv(statsResult.text))
+                : new Map();
 
             // If the remote sheet doesn't look like the achievement list, fall back to the local CSV
             const headerRow = (rows[0] || []).join(' ').toLowerCase();
             if (!headerRow.includes('name') && !headerRow.includes('#') && !headerRow.includes('player video') && !headerRow.includes('player')) {
                 try {
-                    const localResp = await fetch(csvPath);
+                    const localResp = await fetch(csvPath, { cache: 'no-store' });
                     if (localResp && localResp.ok) {
                         text = await localResp.text();
                         rows = parseCsv(text);
+                        csvResult = { source: 'local', checkedAt: new Date().toISOString() };
                     } else {
+                        csvResult = { source: 'unverified' };
                         console.warn('AchievementList: remote CSV header mismatch and local fetch failed', localResp && localResp.status);
                     }
                 } catch (err) {
+                    csvResult = { source: 'unverified' };
                     console.warn('AchievementList: local fetch failed', err && err.message);
                 }
             }
+            const achievementIndexesByPlayer = new Map();
 
             const [header, ...dataRows] = rows;
             const headers = header.map((col) => col.trim());
@@ -384,6 +405,9 @@ export default {
                     const name = getColVal(values, row, ['name'], 1);
                     const notes = getColVal(values, row, ['notes'], 2);
                     const player = getColVal(values, row, ['player', 'user'], 3);
+                    const playerKey = player.trim().toLowerCase();
+                    const achievementIndex = isOld ? null : (achievementIndexesByPlayer.get(playerKey) || 0);
+                    if (!isOld) achievementIndexesByPlayer.set(playerKey, achievementIndex + 1);
                     const date = getColVal(values, row, ['date'], 5);
                     const video = getColVal(values, row, ['player video', 'video', 'link'], 6);
                     const difficulty = getColVal(values, row, ['difficulty'], 7);
@@ -398,6 +422,7 @@ export default {
                         name,
                         notes,
                         player,
+                        listPoints: achievementIndex === null ? null : (summandsByPlayer.get(playerKey)?.[achievementIndex] ?? null),
                         date,
                         video,
                         difficulty,
@@ -416,6 +441,13 @@ export default {
                 }));
 
             this.list = assignSlugsAndHashes(validList);
+            this.dataStatus = !SHOW_LIST_POINTS
+                ? describeCsvSource([csvResult])
+                : !summandsByPlayer.size
+                ? { state: 'warning', message: 'Per-achievement list points are unavailable.' }
+                : this.list.some((achievement) => achievement.listPoints === null)
+                    ? { state: 'warning', message: 'List points are missing for some achievements.' }
+                    : describeCsvSource([csvResult, statsResult]);
 
             if (this.$route.params.level) {
                 this.selectByParam(this.$route.params.level);

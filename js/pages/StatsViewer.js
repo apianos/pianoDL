@@ -2,7 +2,7 @@ import { store } from '../main.js';
 import Spinner from '../components/Spinner.js';
 import Sidebar from '../components/List/Sidebar.js';
 import { fetchEditors } from '../content.js';
-import { fetchCsvPrefer, slugify, assignSlugsAndHashes } from '../util.js';
+import { fetchCsvPreferWithStatus, describeCsvSource, slugify, assignSlugsAndHashes } from '../util.js';
 
 const statsCsvPath = '/data/achievement_leaderboard (1).csv';
 const achievementCsvPath = '/data/pianoDL - piano achievement list (30).csv';
@@ -120,7 +120,7 @@ export default {
             <div class="list-container">
                 <div class="level stats-sidebar">
                     <h1>Stats Viewer</h1>
-                    <p class="type-body stats-intro">Players ranked by achievement completions. Point calculation by ferrari216</p>
+                    <p class="type-body stats-intro">Players ranked by achievement completions. Point calculation by keytoucher1434 and ferrari216</p>
                     <table class="records stats-list-table" v-if="entries.length > 0">
                         <tr>
                             <th class="rank"><p class="type-title-sm">Rank</p></th>
@@ -230,7 +230,7 @@ export default {
                     <p>Select a player from the list to view their stats.</p>
                 </div>
             </div>
-            <Sidebar :editors="editors">
+            <Sidebar :editors="editors" :data-status="dataStatus">
                 <p class="error" v-for="error of errors" :key="error">{{ error }}</p>
             </Sidebar>
         </main>
@@ -241,6 +241,7 @@ export default {
         selectedPlayerSlug: '',
         editors: [],
         errors: [],
+        dataStatus: null,
         store,
     }),
     watch: {
@@ -255,7 +256,9 @@ export default {
         selectPlayer(entry) {
             if (!entry) return;
             this.selectedPlayerSlug = entry.slug;
-            if (this.$route.params.player !== entry.slug) {
+            const isStatsViewerRoute = this.$route.path === '/stats-viewer'
+                || this.$route.path.startsWith('/stats-viewer/');
+            if (isStatsViewerRoute && this.$route.params.player !== entry.slug) {
                 this.$router.replace({ path: `/stats-viewer/${entry.slug}` }).catch(() => {});
             }
         },
@@ -280,31 +283,36 @@ export default {
             this.editors = editors || [];
 
             // Load leaderboard CSV: prefer remote published sheet, fallback to local copy
-            const statsTextPromise = fetchCsvPrefer(remoteStatsCsv, statsCsvPath);
+            const statsResultPromise = fetchCsvPreferWithStatus(remoteStatsCsv, statsCsvPath);
             // Try remote published Google Sheets CSV for achievements, fall back to local file
-            const achievementTextPromise = fetchCsvPrefer(remoteAchievementCsv, achievementCsvPath);
+            const achievementResultPromise = fetchCsvPreferWithStatus(remoteAchievementCsv, achievementCsvPath);
 
-            const [statsText, achievementText] = await Promise.all([statsTextPromise, achievementTextPromise]);
+            const [statsResult, initialAchievementResult] = await Promise.all([statsResultPromise, achievementResultPromise]);
 
-            const statsRows = parseCsv(statsText);
-            let achievementRows = parseCsv(achievementText);
+            const statsRows = parseCsv(statsResult.text);
+            let achievementResult = initialAchievementResult;
+            let achievementRows = parseCsv(achievementResult.text);
 
             // Validate achievement CSV header looks like the achievement list (not the leaderboard)
             const achievementHeader = (achievementRows[0] || []).join(' ').toLowerCase();
             if (!achievementHeader.includes('name') && !achievementHeader.includes('#') && !achievementHeader.includes('player video')) {
                 // remote CSV likely pointed to the leaderboard; fallback to local copy
                 try {
-                    const localResp = await fetch(achievementCsvPath);
+                    const localResp = await fetch(achievementCsvPath, { cache: 'no-store' });
                     if (localResp && localResp.ok) {
                         const localText = await localResp.text();
                         achievementRows = parseCsv(localText);
+                        achievementResult = { source: 'local', checkedAt: new Date().toISOString() };
                     } else {
+                        achievementResult = { source: 'unverified' };
                         console.warn('StatsViewer: achievement CSV header mismatch and local fetch failed', localResp && localResp.status);
                     }
                 } catch (err) {
+                    achievementResult = { source: 'unverified' };
                     console.warn('StatsViewer: local achievement fetch failed', err && err.message);
                 }
             }
+            this.dataStatus = describeCsvSource([statsResult, achievementResult]);
 
             const leaderboardEntries = statsRows.slice(1)
                 .map((row) => {
