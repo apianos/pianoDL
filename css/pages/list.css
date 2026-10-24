@@ -207,6 +207,12 @@ main.dark .page-list .data-status--warning {
 .page-list .list .level button .level-info .type-label-sm::after {
     margin: 0;
 }
+.page-list .bonus-instrument-name {
+    font-size: 0.9rem;
+}
+.page-list .bonus-instrument-player {
+    font-size: 0.75rem;
+}
 .page-list .list .level.error button {
     color: var(--color-error);
     cursor: not-allowed;

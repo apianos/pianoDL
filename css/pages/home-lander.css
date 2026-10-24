@@ -312,13 +312,13 @@
 }
 
 .home-change__badge--verification {
-    background: #eee6f7;
-    color: #68408d;
+    background: #e1f0e4;
+    color: #246038;
 }
 
 .home-change__badge--victor {
-    background: #e1f0e4;
-    color: #246038;
+    background: #eee6f7;
+    color: #68408d;
 }
 
 .home-change__badge--moved-up,

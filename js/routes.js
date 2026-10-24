@@ -3,6 +3,7 @@ import AchievementList from './pages/AchievementList.js';
 import VerifiedCsvList from './pages/VerifiedCsvList.js';
 import Leaderboard from './pages/Leaderboard.js';
 import Roulette from './pages/Roulette.js';
+import BonusInstrumentList from './pages/BonusInstrumentList.js';
 import StatsViewer from './pages/StatsViewer.js';
 import Home from './pages/Home.js';
 
@@ -18,4 +19,6 @@ export default [
     { path: '/stats-viewer', component: StatsViewer },
     { path: '/stats-viewer/:player', component: StatsViewer },
     { path: '/roulette', component: Roulette },
+    { path: '/bonus-instrument-list', component: BonusInstrumentList },
+    { path: '/bonus-instrument-list/:entry', component: BonusInstrumentList },
 ];
