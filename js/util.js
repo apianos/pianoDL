@@ -1,4 +1,4 @@
-export const SHOW_LIST_POINTS = false;
+export const SHOW_LIST_POINTS = true;
 
 // https://stackoverflow.com/questions/3452546/how-do-i-get-the-youtube-video-id-from-a-url
 export function getYoutubeIdFromUrl(url) {

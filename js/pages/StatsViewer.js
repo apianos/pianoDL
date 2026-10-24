@@ -2,7 +2,14 @@ import { store } from '../main.js';
 import Spinner from '../components/Spinner.js';
 import Sidebar from '../components/List/Sidebar.js';
 import { fetchEditors } from '../content.js';
-import { fetchCsvPreferWithStatus, describeCsvSource, slugify, assignSlugsAndHashes } from '../util.js';
+import {
+    fetchCsvPreferWithStatus,
+    describeCsvSource,
+    parseSummandsByPlayer,
+    slugify,
+    assignSlugsAndHashes,
+    SHOW_LIST_POINTS,
+} from '../util.js';
 
 const statsCsvPath = '/data/achievement_leaderboard (1).csv';
 const achievementCsvPath = '/data/pianoDL - piano achievement list (30).csv';
@@ -156,7 +163,7 @@ export default {
                     </div>
                     <div class="stats-detail-sections" v-if="selectedPlayer.details">
                         <div class="stats-detail-section">
-                            <h3 class="type-title-sm">Levels Completed</h3>
+                            <h3 class="type-title-sm">Levels Completed ({{ selectedPlayer.details.completedLevels.length }})</h3>
                             <ul v-if="selectedPlayer.details.completedLevels.length > 0" class="stats-detail-list">
                                 <li v-for="item in selectedPlayer.details.completedLevels" :key="item.name + item.date" class="stats-detail-item">
                                     <div class="stats-detail-copy">
@@ -172,14 +179,17 @@ export default {
                                             <span class="type-label-md">{{ item.name || 'Unknown' }}</span>
                                             <span class="stats-detail-rank" v-if="item.rank">#{{ item.rank }}</span>
                                         </div>
+                                        <span class="type-label-sm stats-detail-points" v-if="showListPoints && item.listPoints != null">{{ item.listPoints }} pts</span>
                                     </div>
-                                    <p class="type-label-sm stats-detail-date" v-if="item.date">{{ item.date }}</p>
+                                    <div class="stats-detail-meta">
+                                        <p class="type-label-sm stats-detail-date" v-if="item.date">{{ item.date }}</p>
+                                    </div>
                                 </li>
                             </ul>
                             <p v-else>No completed levels listed.</p>
                         </div>
                         <div class="stats-detail-section">
-                            <h3 class="type-title-sm">Levels Verified</h3>
+                            <h3 class="type-title-sm">Levels Verified ({{ selectedPlayer.details.verifiedLevels.length }})</h3>
                             <ul v-if="selectedPlayer.details.verifiedLevels.length > 0" class="stats-detail-list">
                                 <li v-for="item in selectedPlayer.details.verifiedLevels" :key="item.name + item.date" class="stats-detail-item">
                                     <div class="stats-detail-copy">
@@ -195,14 +205,17 @@ export default {
                                             <span class="type-label-md">{{ item.name || 'Unknown' }}</span>
                                             <span class="stats-detail-rank" v-if="item.verifiedRank || item.rank">#{{ item.verifiedRank || item.rank }}</span>
                                         </div>
+                                        <span class="type-label-sm stats-detail-points" v-if="showListPoints && item.listPoints != null">{{ item.listPoints }} pts</span>
                                     </div>
-                                    <p class="type-label-sm stats-detail-date" v-if="item.date">{{ item.date }}</p>
+                                    <div class="stats-detail-meta">
+                                        <p class="type-label-sm stats-detail-date" v-if="item.date">{{ item.date }}</p>
+                                    </div>
                                 </li>
                             </ul>
                             <p v-else>No verified levels listed.</p>
                         </div>
                         <div class="stats-detail-section">
-                            <h3 class="type-title-sm">Runs</h3>
+                            <h3 class="type-title-sm">Runs ({{ selectedPlayer.details.runs.length }})</h3>
                             <ul v-if="selectedPlayer.details.runs.length > 0" class="stats-detail-list">
                                 <li v-for="item in selectedPlayer.details.runs" :key="item.name + item.date" class="stats-detail-item">
                                     <div class="stats-detail-copy">
@@ -218,8 +231,11 @@ export default {
                                             <span class="type-label-md">{{ item.name || 'Unknown' }}</span>
                                             <span class="stats-detail-rank" v-if="item.rank">#{{ item.rank }}</span>
                                         </div>
+                                        <span class="type-label-sm stats-detail-points" v-if="showListPoints && item.listPoints != null">{{ item.listPoints }} pts</span>
                                     </div>
-                                    <p class="type-label-sm stats-detail-date" v-if="item.date">{{ item.date }}</p>
+                                    <div class="stats-detail-meta">
+                                        <p class="type-label-sm stats-detail-date" v-if="item.date">{{ item.date }}</p>
+                                    </div>
                                 </li>
                             </ul>
                             <p v-else>No runs listed.</p>
@@ -242,6 +258,7 @@ export default {
         editors: [],
         errors: [],
         dataStatus: null,
+        showListPoints: SHOW_LIST_POINTS,
         store,
     }),
     watch: {
@@ -290,6 +307,9 @@ export default {
             const [statsResult, initialAchievementResult] = await Promise.all([statsResultPromise, achievementResultPromise]);
 
             const statsRows = parseCsv(statsResult.text);
+            const summandsByPlayer = SHOW_LIST_POINTS
+                ? parseSummandsByPlayer(statsRows)
+                : new Map();
             let achievementResult = initialAchievementResult;
             let achievementRows = parseCsv(achievementResult.text);
 
@@ -416,10 +436,13 @@ export default {
             });
 
             const playerProfiles = new Map();
+            const achievementIndexesByPlayer = new Map();
             parsedAchievementEntries.forEach((entry) => {
                 if (entry.isOld) return;
 
                 const normalizedName = normalizePlayerName(entry.player);
+                const achievementIndex = achievementIndexesByPlayer.get(normalizedName) || 0;
+                achievementIndexesByPlayer.set(normalizedName, achievementIndex + 1);
                 const isLevelCompletion = !containsPercentLabel(entry.name);
                 const isVerified = (entry.verifier || '').trim().toLowerCase() === 'y';
 
@@ -440,6 +463,7 @@ export default {
                     id: entry.id,
                     name: entry.name,
                     player: entry.player,
+                    listPoints: summandsByPlayer.get(normalizedName)?.[achievementIndex] ?? null,
                     date: entry.date,
                     video: entry.video,
                     rank: ach ? ach.rank : null,

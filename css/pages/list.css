@@ -124,9 +124,21 @@ main.dark .page-list .data-status--warning {
     -webkit-font-smoothing: subpixel-antialiased;
     white-space: nowrap;
 }
+.page-list--stats .stats-detail-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.15rem;
+    text-align: right;
+    white-space: nowrap;
+}
+.page-list--stats .stats-detail-points {
+    display: block;
+    margin-top: 0.15rem;
+    color: var(--color-on-background);
+}
 .page-list--stats .stats-detail-date {
     white-space: nowrap;
-    margin-top: 0.1rem;
     font-size: 0.95rem;
 }
 
