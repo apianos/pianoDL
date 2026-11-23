@@ -84,6 +84,13 @@ export default {
                         <div class="type-title-sm">Date</div><p class="type-body"><span>{{ entry.date || 'Unknown' }}</span></p>
                     </div>
                     <iframe v-if="video" class="video" :src="video" frameborder="0"></iframe>
+                    <div v-else-if="entry.video" class="video-placeholder" role="status">
+                        <img v-if="isDiscordVideo" src="/assets/discord.svg" alt="" />
+                        <div>
+                            <p class="video-placeholder__title">{{ isDiscordVideo ? 'VIDEO HOSTED ON DISCORD' : 'VIDEO PREVIEW UNAVAILABLE' }}</p>
+                            <p>{{ isDiscordVideo ? 'This run’s video is hosted in the pianoDL Discord server.' : 'This video can’t be previewed here.' }}</p>
+                        </div>
+                    </div>
                     <p class="video-caption type-label-sm">
                         <a v-if="entry.video" :href="entry.video" target="_blank" rel="noreferrer noopener">Video link</a>
                         <span v-if="entry.video"> • </span>
@@ -142,6 +149,16 @@ export default {
         },
         video() {
             return this.entry?.video ? embed(this.entry.video) : '';
+        },
+        isDiscordVideo() {
+            if (!this.entry?.video) return false;
+            try {
+                const url = new URL(this.entry.video);
+                return ['discord.com', 'www.discord.com'].includes(url.hostname.toLowerCase())
+                    && url.pathname.startsWith('/channels/');
+            } catch {
+                return false;
+            }
         },
     },
     async mounted() {
