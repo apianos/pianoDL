@@ -291,7 +291,7 @@ export default {
                         <span class="home-stat__label">players on the list</span>
                     </div>
                     <div class="home-stat">
-                        <span class="home-stat__value">10</span>
+                        <span class="home-stat__value">11</span>
                         <span class="home-stat__label">community editors</span>
                     </div>
                 </section>
