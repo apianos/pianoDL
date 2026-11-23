@@ -17,16 +17,13 @@ export default {
         <main v-else class="page-roulette">
             <div class="sidebar">
                 <p class="type-label-md" style="color: #aaa">
-                    Shameless copy of the Extreme Demon Roulette by <a href="https://matcool.github.io/extreme-demon-roulette/" target="_blank">matcool</a>.
+                    Based on the Extreme Demon Roulette by <a href="https://matcool.github.io/extreme-demon-roulette/" target="_blank">matcool</a>.
                 </p>
                 <form class="options">
                     <Btn @click.native.prevent="onStart">{{ levels.length === 0 ? 'Start' : 'Restart'}}</Btn>
                 </form>
                 <p class="type-label-md" style="color: #aaa">
-                    Randomly draws up to 100 levels from the complete verified list.
-                </p>
-                <p class="type-label-md" style="color: #aaa">
-                    The roulette saves automatically.
+                    Randomly draws levels from the verified list.
                 </p>
                 <form class="save">
                     <p>Manual Load/Save</p>
