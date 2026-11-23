@@ -1,5 +1,9 @@
-import { fetchList } from '../content.js';
-import { getThumbnailFromId, getYoutubeIdFromUrl, shuffle } from '../util.js';
+import {
+    fetchVerifiedLevels,
+    getThumbnailFromId,
+    getYoutubeIdFromUrl,
+    shuffle,
+} from '../util.js';
 
 import Spinner from '../components/Spinner.js';
 import Btn from '../components/Btn.js';
@@ -16,16 +20,11 @@ export default {
                     Shameless copy of the Extreme Demon Roulette by <a href="https://matcool.github.io/extreme-demon-roulette/" target="_blank">matcool</a>.
                 </p>
                 <form class="options">
-                    <div class="check">
-                        <input type="checkbox" id="main" value="Main List" v-model="useMainList">
-                        <label for="main">Main List</label>
-                    </div>
-                    <div class="check">
-                        <input type="checkbox" id="extended" value="Extended List" v-model="useExtendedList">
-                        <label for="extended">Extended List</label>
-                    </div>
                     <Btn @click.native.prevent="onStart">{{ levels.length === 0 ? 'Start' : 'Restart'}}</Btn>
                 </form>
+                <p class="type-label-md" style="color: #aaa">
+                    Randomly draws up to 100 levels from the complete verified list.
+                </p>
                 <p class="type-label-md" style="color: #aaa">
                     The roulette saves automatically.
                 </p>
@@ -42,24 +41,31 @@ export default {
                     <template v-if="levels.length > 0">
                         <!-- Completed Levels -->
                         <div class="level" v-for="(level, i) in levels.slice(0, progression.length)">
-                            <a :href="level.video" class="video">
-                                <img :src="getThumbnailFromId(getYoutubeIdFromUrl(level.video))" alt="">
+                            <a :href="level.video" class="video" target="_blank" rel="noreferrer noopener">
+                                <img v-if="getYoutubeIdFromUrl(level.video)" :src="getThumbnailFromId(getYoutubeIdFromUrl(level.video))" alt="">
+                                <span v-else>Open video</span>
                             </a>
                             <div class="meta">
                                 <p>#{{ level.rank }}</p>
-                                <h2>{{ level.name }}</h2>
+                                <h2 class="level-name">
+                                    <img v-if="level.difficulty" class="difficulty-icon" :src="'/assets/difficulty-icons/' + level.difficulty + '.png'" :alt="level.difficulty">
+                                    {{ level.name }}
+                                </h2>
                                 <p style="color: #00b54b; font-weight: 700">{{ progression[i] }}%</p>
                             </div>
                         </div>
                         <!-- Current Level -->
                         <div class="level" v-if="!hasCompleted">
-                            <a :href="currentLevel.video" target="_blank" class="video">
-                                <img :src="getThumbnailFromId(getYoutubeIdFromUrl(currentLevel.video))" alt="">
+                            <a :href="currentLevel.video" target="_blank" rel="noreferrer noopener" class="video">
+                                <img v-if="getYoutubeIdFromUrl(currentLevel.video)" :src="getThumbnailFromId(getYoutubeIdFromUrl(currentLevel.video))" alt="">
+                                <span v-else>Open video</span>
                             </a>
                             <div class="meta">
                                 <p>#{{ currentLevel.rank }}</p>
-                                <h2>{{ currentLevel.name }}</h2>
-                                <p>{{ currentLevel.id }}</p>
+                                <h2 class="level-name">
+                                    <img v-if="currentLevel.difficulty" class="difficulty-icon" :src="'/assets/difficulty-icons/' + currentLevel.difficulty + '.png'" :alt="currentLevel.difficulty">
+                                    {{ currentLevel.name }}
+                                </h2>
                             </div>
                             <form class="actions" v-if="!givenUp">
                                 <input type="number" v-model="percentage" :placeholder="placeholder" :min="currentPercentage + 1" max=100>
@@ -77,12 +83,16 @@ export default {
                         <!-- Remaining Levels -->
                         <template v-if="givenUp && showRemaining">
                             <div class="level" v-for="(level, i) in levels.slice(progression.length + 1, levels.length - currentPercentage + progression.length)">
-                                <a :href="level.video" target="_blank" class="video">
-                                    <img :src="getThumbnailFromId(getYoutubeIdFromUrl(level.video))" alt="">
+                                <a :href="level.video" target="_blank" rel="noreferrer noopener" class="video">
+                                    <img v-if="getYoutubeIdFromUrl(level.video)" :src="getThumbnailFromId(getYoutubeIdFromUrl(level.video))" alt="">
+                                    <span v-else>Open video</span>
                                 </a>
                                 <div class="meta">
                                     <p>#{{ level.rank }}</p>
-                                    <h2>{{ level.name }}</h2>
+                                    <h2 class="level-name">
+                                        <img v-if="level.difficulty" class="difficulty-icon" :src="'/assets/difficulty-icons/' + level.difficulty + '.png'" :alt="level.difficulty">
+                                        {{ level.name }}
+                                    </h2>
                                     <p style="color: #d50000; font-weight: 700">{{ currentPercentage + 2 + i }}%</p>
                                 </div>
                             </div>
@@ -106,8 +116,6 @@ export default {
         percentage: undefined,
         givenUp: false,
         showRemaining: false,
-        useMainList: true,
-        useExtendedList: true,
         toasts: [],
         fileInput: undefined,
     }),
@@ -163,42 +171,20 @@ export default {
                 return;
             }
 
-            if (!this.useMainList && !this.useExtendedList) {
-                return;
-            }
-
             this.loading = true;
-
-            const fullList = await fetchList();
-
-            if (fullList.filter(([_, err]) => err).length > 0) {
+            try {
+                const verifiedLevels = await fetchVerifiedLevels();
+                this.levels = shuffle(verifiedLevels).slice(0, 100);
+                this.showRemaining = false;
+                this.givenUp = false;
+                this.progression = [];
+                this.percentage = undefined;
+            } catch (error) {
+                console.error('Failed to start roulette from verified list:', error);
+                this.showToast('Failed to load the verified list. Please try again later.');
+            } finally {
                 this.loading = false;
-                this.showToast(
-                    'List is currently broken. Wait until it\'s fixed to start a roulette.',
-                );
-                return;
             }
-
-            const fullListMapped = fullList.map(([lvl, _], i) => ({
-                rank: i + 1,
-                id: lvl.id,
-                name: lvl.name,
-                video: lvl.verification,
-            }));
-            const list = [];
-            if (this.useMainList) list.push(...fullListMapped.slice(0, 75));
-            if (this.useExtendedList) {
-                list.push(...fullListMapped.slice(75, 150));
-            }
-
-            // random 100 levels
-            this.levels = shuffle(list).slice(0, 100);
-            this.showRemaining = false;
-            this.givenUp = false;
-            this.progression = [];
-            this.percentage = undefined;
-
-            this.loading = false;
         },
         save() {
             localStorage.setItem(

@@ -1,4 +1,76 @@
 export const SHOW_LIST_POINTS = true;
+export const VERIFIED_CSV_PATH = '/data/pianoDL - piano achievement list (30).csv';
+export const REMOTE_VERIFIED_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?gid=702241830&single=true&output=csv';
+
+export function parseCsv(text, delimiter = ',') {
+    const rows = [];
+    let row = [];
+    let field = '';
+    let insideQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+
+        if (insideQuotes) {
+            if (char === '"') {
+                if (text[i + 1] === '"') {
+                    field += '"';
+                    i += 1;
+                } else {
+                    insideQuotes = false;
+                }
+            } else {
+                field += char;
+            }
+            continue;
+        }
+
+        if (char === '"') {
+            insideQuotes = true;
+            continue;
+        }
+
+        if (char === delimiter) {
+            row.push(field.trim());
+            field = '';
+            continue;
+        }
+
+        if (char === '\r') {
+            continue;
+        }
+
+        if (char === '\n') {
+            row.push(field.trim());
+            rows.push(row);
+            row = [];
+            field = '';
+            continue;
+        }
+
+        field += char;
+    }
+
+    row.push(field.trim());
+    if (row.length > 1 || row[0] !== '') {
+        rows.push(row);
+    }
+
+    return rows;
+}
+
+export function isPastRank(rank = '', extra = '') {
+    const normalized = String(rank || '').trim().toUpperCase();
+    const normalizedExtra = String(extra || '').trim().toUpperCase();
+    return (
+        normalized === 'PAST' ||
+        normalized === 'OLD' ||
+        normalized.startsWith('OLD') ||
+        normalized.startsWith('PAST') ||
+        normalizedExtra === 'OLD' ||
+        normalizedExtra === 'PAST'
+    );
+}
 
 // https://stackoverflow.com/questions/3452546/how-do-i-get-the-youtube-video-id-from-a-url
 export function getYoutubeIdFromUrl(url) {
@@ -133,6 +205,52 @@ export async function fetchCsvPreferWithStatus(remoteUrl, localPath, timeoutMs =
     }
 }
 
+export async function fetchVerifiedLevels() {
+    const { text } = await fetchCsvPreferWithStatus(
+        REMOTE_VERIFIED_CSV,
+        VERIFIED_CSV_PATH,
+    );
+    const [header = [], ...rows] = parseCsv(text);
+    const normalizeHeader = (value) =>
+        value.trim().replace(/^\uFEFF/, '').toLowerCase().replace(/\?/g, '');
+    const findColumn = (names) =>
+        header.findIndex((value) => names.includes(normalizeHeader(value)));
+    const rankIndex = findColumn(['#', 'rank', 'x', 'id']);
+    const nameIndex = findColumn(['name']);
+    const tagIndex = findColumn(['column 1', 'tag', 'old', 'type']);
+    const videoIndex = findColumn(['player video', 'video', 'link']);
+    const difficultyIndex = findColumn(['difficulty']);
+    const verifierIndex = findColumn(['verifier']);
+
+    if ([rankIndex, nameIndex, videoIndex, verifierIndex].some((index) => index < 0)) {
+        throw new Error('Verified-list CSV is missing required columns.');
+    }
+
+    const verifiedLevels = rows
+        .filter((row) => {
+            const tag = tagIndex < 0 ? row[4] : row[tagIndex];
+            return (
+                !isPastRank(row[rankIndex], tag) &&
+                (row[verifierIndex] || '').trim().toLowerCase() === 'y' &&
+                (row[nameIndex] || '').trim() !== ''
+            );
+        })
+        .map((row, index) => ({
+            rank: index + 1,
+            name: row[nameIndex].trim(),
+            video: (row[videoIndex] || '').trim(),
+            difficulty: (difficultyIndex < 0 ? '' : row[difficultyIndex] || '')
+                .trim()
+                .replace(/\.png$/i, ''),
+        }));
+
+    if (verifiedLevels.length === 0) {
+        throw new Error('Verified-list CSV contains no verified levels.');
+    }
+
+    return verifiedLevels;
+}
+
 export function parseSummandsByPlayer(rows = []) {
     const headers = (rows[0] || []).map((header) => header.trim().toLowerCase());
     const playerIndex = headers.indexOf('player');
@@ -236,4 +354,3 @@ export function assignSlugsAndHashes(list = []) {
 
     return list;
 }
-

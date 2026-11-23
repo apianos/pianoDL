@@ -1,83 +1,22 @@
 import { store } from '../main.js';
-import { embed, assignSlugsAndHashes, fetchCsvPreferWithStatus, describeCsvSource, parseSummandsByPlayer, SHOW_LIST_POINTS } from '../util.js';
+import {
+    embed,
+    assignSlugsAndHashes,
+    fetchCsvPreferWithStatus,
+    describeCsvSource,
+    parseSummandsByPlayer,
+    parseCsv,
+    isPastRank,
+    VERIFIED_CSV_PATH,
+    REMOTE_VERIFIED_CSV,
+    SHOW_LIST_POINTS,
+} from '../util.js';
 import { fetchEditors } from '../content.js';
 import Spinner from '../components/Spinner.js';
 import Sidebar from '../components/List/Sidebar.js';
 
-const csvPath = '/data/pianoDL - piano achievement list (30).csv';
-const remoteCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?gid=702241830&single=true&output=csv';
 const statsCsvPath = '/data/achievement_leaderboard (1).csv';
 const remoteStatsCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?gid=1658804691&single=true&output=csv';
-
-function parseCsv(text, delimiter = ',') {
-    const rows = [];
-    let row = [];
-    let field = '';
-    let insideQuotes = false;
-
-    for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-
-        if (insideQuotes) {
-            if (char === '"') {
-                if (text[i + 1] === '"') {
-                    field += '"';
-                    i += 1;
-                } else {
-                    insideQuotes = false;
-                }
-            } else {
-                field += char;
-            }
-            continue;
-        }
-
-        if (char === '"') {
-            insideQuotes = true;
-            continue;
-        }
-
-        if (char === delimiter) {
-            row.push(field.trim());
-            field = '';
-            continue;
-        }
-
-        if (char === '\r') {
-            continue;
-        }
-
-        if (char === '\n') {
-            row.push(field.trim());
-            rows.push(row);
-            row = [];
-            field = '';
-            continue;
-        }
-
-        field += char;
-    }
-
-    row.push(field.trim());
-    if (row.length > 1 || row[0] !== '') {
-        rows.push(row);
-    }
-
-    return rows;
-}
-
-function isPastRank(rank = '', extra = '') {
-    const normalized = String(rank || '').trim().toUpperCase();
-    const normalizedExtra = String(extra || '').trim().toUpperCase();
-    return (
-        normalized === 'PAST' ||
-        normalized === 'OLD' ||
-        normalized.startsWith('OLD') ||
-        normalized.startsWith('PAST') ||
-        normalizedExtra === 'OLD' ||
-        normalizedExtra === 'PAST'
-    );
-}
 
 export default {
     components: { Spinner, Sidebar },
@@ -311,7 +250,7 @@ export default {
             this.editors = editors || [];
 
             const [csvResult, statsResult] = await Promise.all([
-                fetchCsvPreferWithStatus(remoteCsv, csvPath),
+                fetchCsvPreferWithStatus(REMOTE_VERIFIED_CSV, VERIFIED_CSV_PATH),
                 SHOW_LIST_POINTS
                     ? fetchCsvPreferWithStatus(remoteStatsCsv, statsCsvPath)
                     : Promise.resolve(null),
@@ -326,7 +265,7 @@ export default {
             const headerRow = (rows[0] || []).join(' ').toLowerCase();
             if (!headerRow.includes('name') && !headerRow.includes('#') && !headerRow.includes('player video') && !headerRow.includes('player')) {
                 try {
-                    const localResp = await fetch(csvPath, { cache: 'no-store' });
+                    const localResp = await fetch(VERIFIED_CSV_PATH, { cache: 'no-store' });
                     if (localResp && localResp.ok) {
                         text = await localResp.text();
                         rows = parseCsv(text);
