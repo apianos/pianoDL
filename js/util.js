@@ -119,13 +119,13 @@ export function getRedditEmbedUrl(video) {
         return '';
     }
 
-    const match = url.pathname.match(/^\/r\/([\w-]+)\/comments\/([\da-z]+)(?:\/([^/]+))?\/?$/i);
+    const match = url.pathname.match(/^\/(r|user)\/([\w-]+)\/comments\/([\da-z]+)(?:\/([^/]+))?\/?$/i);
     if (!match) {
         return '';
     }
 
-    const [, subreddit, postId, slug = ''] = match;
-    const postPath = `/r/${subreddit}/comments/${postId}${slug ? `/${slug}` : ''}/`;
+    const [, route, name, postId, slug = ''] = match;
+    const postPath = `/${route}/${name}/comments/${postId}${slug ? `/${slug}` : ''}/`;
     return `https://embed.reddit.com${postPath}?embed=true`;
 }
 
