@@ -39,7 +39,7 @@ export default {
                         <!-- Completed Levels -->
                         <div class="level" v-for="(level, i) in levels.slice(0, progression.length)">
                             <a :href="level.video" class="video" target="_blank" rel="noreferrer noopener">
-                                <img v-if="getYoutubeIdFromUrl(level.video)" :src="getThumbnailFromId(getYoutubeIdFromUrl(level.video))" alt="">
+                                <img v-if="thumbnailSrc(level.video) && !level.thumbnailFailed" :src="thumbnailSrc(level.video)" @error="onThumbnailError(level)" alt="" loading="lazy">
                                 <span v-else>Open video</span>
                             </a>
                             <div class="meta">
@@ -54,7 +54,7 @@ export default {
                         <!-- Current Level -->
                         <div class="level" v-if="!hasCompleted">
                             <a :href="currentLevel.video" target="_blank" rel="noreferrer noopener" class="video">
-                                <img v-if="getYoutubeIdFromUrl(currentLevel.video)" :src="getThumbnailFromId(getYoutubeIdFromUrl(currentLevel.video))" alt="">
+                                <img v-if="thumbnailSrc(currentLevel.video) && !currentLevel.thumbnailFailed" :src="thumbnailSrc(currentLevel.video)" @error="onThumbnailError(currentLevel)" alt="" loading="lazy">
                                 <span v-else>Open video</span>
                             </a>
                             <div class="meta">
@@ -81,7 +81,7 @@ export default {
                         <template v-if="givenUp && showRemaining">
                             <div class="level" v-for="(level, i) in levels.slice(progression.length + 1, levels.length - currentPercentage + progression.length)">
                                 <a :href="level.video" target="_blank" rel="noreferrer noopener" class="video">
-                                    <img v-if="getYoutubeIdFromUrl(level.video)" :src="getThumbnailFromId(getYoutubeIdFromUrl(level.video))" alt="">
+                                    <img v-if="thumbnailSrc(level.video) && !level.thumbnailFailed" :src="thumbnailSrc(level.video)" @error="onThumbnailError(level)" alt="" loading="lazy">
                                     <span v-else>Open video</span>
                                 </a>
                                 <div class="meta">
@@ -162,6 +162,27 @@ export default {
         shuffle,
         getThumbnailFromId,
         getYoutubeIdFromUrl,
+        thumbnailSrc(video) {
+            const youtubeId = getYoutubeIdFromUrl(video);
+            if (youtubeId) return getThumbnailFromId(youtubeId);
+
+            try {
+                const url = new URL(video);
+                if (
+                    ['tiktok.com', 'www.tiktok.com', 'm.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com',
+                        'instagram.com', 'www.instagram.com', 'm.instagram.com'].includes(url.hostname.toLowerCase())
+                ) {
+                    return `/api/video-thumbnail?video=${encodeURIComponent(video)}`;
+                }
+            } catch {
+                return '';
+            }
+
+            return '';
+        },
+        onThumbnailError(level) {
+            level.thumbnailFailed = true;
+        },
         async onStart() {
             if (this.isActive) {
                 this.showToast('Give up before starting a new roulette.');

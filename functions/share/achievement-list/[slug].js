@@ -1,4 +1,5 @@
 import { assignSlugsAndHashes } from '../../../js/util.js';
+import { getSocialVideoThumbnail } from '../../_shared/video-thumbnail.js';
 
 const csvPath = '/data/pianoDL - piano achievement list (30).csv';
 const remoteCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4hK8Pul9plvCZ0XYWEqQMFVEmPg50fsoUQeKg3Y6BuBEEiG8BE4UtmNxDG_xvgAZ_uZPXl5eptf5A/pub?gid=702241830&single=true&output=csv';
@@ -140,74 +141,12 @@ function getYoutubeThumbnail(video) {
         : '';
 }
 
-function isTikTokUrl(url) {
-    return ['tiktok.com', 'www.tiktok.com', 'm.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com']
-        .includes(url.hostname.toLowerCase());
-}
-
-function isInstagramUrl(url) {
-    return ['instagram.com', 'www.instagram.com', 'm.instagram.com']
-        .includes(url.hostname.toLowerCase())
-        && /^\/(?:p|reel|reels|tv)\/[\w-]+\/?$/i.test(url.pathname);
-}
-
-async function fetchProviderThumbnail(endpoint, allowedHost) {
-    try {
-        const response = await fetch(endpoint, {
-            headers: { Accept: 'application/json' },
-            signal: AbortSignal.timeout(5000),
-        });
-        if (!response.ok) return '';
-
-        const thumbnail = new URL((await response.json()).thumbnail_url);
-        if (thumbnail.protocol !== 'https:' || !allowedHost(thumbnail.hostname.toLowerCase())) {
-            return '';
-        }
-        return thumbnail.href;
-    } catch {
-        return '';
-    }
-}
-
-async function getTikTokThumbnail(video) {
-    let url;
-    try {
-        url = new URL(video);
-    } catch {
-        return '';
-    }
-
-    if (!isTikTokUrl(url)) {
-        return '';
-    }
-
-    const endpoint = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url.href)}`;
-    return fetchProviderThumbnail(endpoint, (hostname) => /(?:^|\.)tiktokcdn(?:-[a-z0-9]+)?\.com$/i.test(hostname));
-}
-
-async function getInstagramThumbnail(video) {
-    let url;
-    try {
-        url = new URL(video);
-    } catch {
-        return '';
-    }
-
-    if (!isInstagramUrl(url)) return '';
-
-    const endpoint = `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(url.href)}`;
-    return fetchProviderThumbnail(endpoint, (hostname) => /(?:^|\.)(?:cdninstagram\.com|fbcdn\.net)$/i.test(hostname));
-}
-
 async function getPreviewImage(entry, origin) {
     const youtubeThumbnail = getYoutubeThumbnail(entry.video);
     if (youtubeThumbnail) return youtubeThumbnail;
 
-    const tiktokThumbnail = await getTikTokThumbnail(entry.video);
-    if (tiktokThumbnail) return tiktokThumbnail;
-
-    const instagramThumbnail = await getInstagramThumbnail(entry.video);
-    if (instagramThumbnail) return instagramThumbnail;
+    const socialThumbnail = await getSocialVideoThumbnail(entry.video);
+    if (socialThumbnail) return socialThumbnail;
 
     return new URL(fallbackImage, origin).href;
 }
